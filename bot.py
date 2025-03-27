@@ -40,31 +40,26 @@ user_state = {}  # Dicionário para rastrear o estado do usuário
 # Função de sanitização de HTML melhorada
 def sanitizar_html(texto):
     try:
-        # Remover cabeçalhos e tags HTML indesejados
-        texto = re.sub(r'<!DOCTYPE.*?>', '', texto, flags=re.DOTALL)
-        texto = re.sub(r'<html.*?>', '', texto, flags=re.DOTALL)
-        texto = re.sub(r'</html>', '', texto)
-        texto = re.sub(r'<body.*?>', '', texto, flags=re.DOTALL)
-        texto = re.sub(r'</body>', '', texto)
+        # Remover completamente tags HTML não suportadas pelo Telegram
+        tags_removidas = [
+            r'<!DOCTYPE.*?>', 
+            r'<html.*?>', 
+            r'</html>', 
+            r'<head.*?>', 
+            r'</head>', 
+            r'<body.*?>', 
+            r'</body>', 
+            r'<title.*?>', 
+            r'</title>',
+            r'<meta.*?>'
+        ]
         
-        # Remover títulos duplicados
-        linhas = texto.split('\n')
-        linhas_unicas = []
-        titulos_vistos = set()
+        for tag in tags_removidas:
+            texto = re.sub(tag, '', texto, flags=re.DOTALL | re.IGNORECASE)
         
-        for linha in linhas:
-            linha = linha.strip()
-            if linha.startswith('Diagnóstico Técnico'):
-                if linha not in titulos_vistos:
-                    titulos_vistos.add(linha)
-                    linhas_unicas.append(linha)
-            else:
-                linhas_unicas.append(linha)
-        
-        texto = '\n'.join(linhas_unicas)
-        
-        # Limpar bulletpoints duplicados
-        texto = re.sub(r'•\s*•', '•', texto)
+        # Limpar tags de formatação não suportadas
+        texto = re.sub(r'<style.*?</style>', '', texto, flags=re.DOTALL | re.IGNORECASE)
+        texto = re.sub(r'<script.*?</script>', '', texto, flags=re.DOTALL | re.IGNORECASE)
         
         # Remover tags ul e li, mantendo o conteúdo
         texto = re.sub(r'<ul>', '', texto)
@@ -72,11 +67,31 @@ def sanitizar_html(texto):
         texto = re.sub(r'<li>', '• ', texto)
         texto = re.sub(r'</li>', '\n', texto)
         
+        # Remover tags HTML não permitidas pelo Telegram
+        tags_telegram = ['b', 'i', 'u', 'code', 'pre']
+        
+        # Remover outras tags 
+        for tag in re.findall(r'</?[a-zA-Z]+.*?>', texto):
+            tag_limpa = re.sub(r'[<>/]', '', tag).split()[0]
+            if tag_limpa not in tags_telegram:
+                texto = texto.replace(tag, '')
+        
+        # Limpar bulletpoints duplicados
+        texto = re.sub(r'•\s*•', '•', texto)
+        
         # Remover espaços extras no início das linhas
         texto = re.sub(r'^\s+', '', texto, flags=re.MULTILINE)
         
         # Limpar linhas em branco extras
         texto = re.sub(r'\n\n+', '\n\n', texto)
+        
+        # Escapar caracteres especiais para evitar quebra de parsing
+        texto = html.escape(texto, quote=False)
+        
+        # Restaurar tags permitidas
+        for tag in tags_telegram:
+            texto = texto.replace(f'&lt;{tag}&gt;', f'<{tag}>')
+            texto = texto.replace(f'&lt;/{tag}&gt;', f'</{tag}>')
         
         return texto.strip()
     
