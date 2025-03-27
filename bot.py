@@ -142,6 +142,8 @@ def buscar_solucao_ia(modelo, problema):
         • Caso precise mencionar peças, use o formato:
           Possíveis substituições: 
           <b>Nome da peça</b> - código da peça
+        
+        Observação: essa mensgem está sendo visualizada por um técnico profissional do segmento, então não precisa se limitar em informações mais técnicas.
         """
         
         logger.info(f"Enviando prompt para Gemini")
