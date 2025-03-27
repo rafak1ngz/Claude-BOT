@@ -1,0 +1,162 @@
+# Projeto de Agente de IA para Suporte Técnico de Empilhadeiras - Telegram
+
+## Arquitetura Atualizada
+
+1. **Plataforma**: Telegram
+2. **Backend**: Python com Flask
+3. **IA**: Modelo de linguagem (OpenAI ou Anthropic)
+4. **Hospedagem**: Railway (exclusivamente)
+5. **Banco de Dados**: MongoDB Atlas (plano gratuito)
+
+## Dependências do Projeto
+
+```python
+# requirements.txt
+flask
+pyTelegramBotAPI
+python-dotenv
+openai
+pymongo
+requests
+```
+
+## Código Principal do Bot
+
+```python
+import os
+import telebot
+import openai
+import pymongo
+from dotenv import load_dotenv
+
+# Carregar variáveis de ambiente
+load_dotenv()
+
+# Configurações
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+MONGODB_URI = os.getenv('MONGODB_URI')
+
+# Inicializar serviços
+bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
+openai.api_key = OPENAI_API_KEY
+mongo_client = pymongo.MongoClient(MONGODB_URI)
+db = mongo_client['empilhadeiras_db']
+manutencoes_collection = db['manutencoes']
+
+def buscar_solucao_ia(modelo, problema):
+    """
+    Consulta modelo de IA para encontrar solução
+    """
+    prompt = f"""
+    Contexto: Suporte técnico de empilhadeira
+    Modelo: {modelo}
+    Problema: {problema}
+    
+    Forneça:
+    - Código da peça (se aplicável)
+    - Procedimento de reparo
+    - Possíveis causas
+    """
+    
+    resposta = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "system", "content": prompt}]
+    )
+    
+    return resposta.choices[0].message.content
+
+@bot.message_handler(commands=['start'])
+def mensagem_inicial(message):
+    bot.reply_to(message, 
+        "Olá! Sou o assistente de suporte técnico para empilhadeiras. " 
+        "Envie o modelo e o problema que enfrentou."
+    )
+
+@bot.message_handler(func=lambda message: True)
+def handle_message(message):
+    try:
+        # Extrair informações
+        texto = message.text
+        
+        # Lógica simples de extração (pode ser melhorada)
+        partes = texto.split('-')
+        if len(partes) < 2:
+            bot.reply_to(message, "Por favor, use o formato: Modelo-Problema")
+            return
+        
+        modelo = partes[0].strip()
+        problema = partes[1].strip()
+        
+        # Buscar solução via IA
+        solucao = buscar_solucao_ia(modelo, problema)
+        
+        # Salvar no banco de dados
+        registro = {
+            'modelo': modelo,
+            'problema': problema,
+            'solucao': solucao,
+            'data': datetime.now()
+        }
+        manutencoes_collection.insert_one(registro)
+        
+        # Responder ao usuário
+        bot.reply_to(message, f"Solução encontrada:\n{solucao}\n\n"
+                     "Esta solução resolveu seu problema? (Sim/Não)")
+    
+    except Exception as e:
+        bot.reply_to(message, f"Erro ao processar: {str(e)}")
+
+# Configuração para Railway
+if __name__ == '__main__':
+    bot.polling()
+```
+
+## Configuração do Railway
+
+1. Crie um novo projeto no Railway
+2. Importe o repositório do GitHub
+3. Configure variáveis de ambiente:
+   - `TELEGRAM_BOT_TOKEN`
+   - `OPENAI_API_KEY`
+   - `MONGODB_URI`
+
+## Comandos para Configuração
+
+```bash
+# Criar ambiente virtual
+python -m venv venv
+source venv/bin/activate
+
+# Instalar dependências
+pip install -r requirements.txt
+
+# Criar arquivo .env local para testes
+touch .env
+```
+
+## Fluxo de Comunicação
+
+1. Técnico envia: `Modelo-Problema`
+   - Exemplo: `EP25-Roda de tração desgastada`
+
+2. Bot responde com:
+   - Código da peça
+   - Procedimento de reparo
+   - Possíveis causas
+
+3. Solicita confirmação da solução
+
+## Próximos Passos
+
+- Implementar tratamento mais robusto de entrada
+- Adicionar comandos como `/historico`
+- Melhorar extração de informações
+- Criar base de conhecimento mais específica
+
+## Considerações
+
+- Uso de IA generativa para contextualização
+- Armazenamento de histórico
+- Solução 100% em nuvem
+- Custo próximo a zero
