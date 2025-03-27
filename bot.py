@@ -171,6 +171,7 @@ def buscar_solucao_ia(modelo, problema):
         Gere um diagnóstico técnico CURTO e DIRETO em HTML
         
         //Modelo a ser respondido
+        🔧 Diagnóstico para {modelo} - Código {problema}:
         1. Análise do código de falha {problema}
         2. Possíveis causas da falha
         3. Procedimento de diagnóstico
