@@ -12,22 +12,15 @@ load_dotenv()
 
 # Configurações
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')  # Mudança aqui
 MONGODB_URI = os.getenv('MONGODB_URI')
 
-print(f"Token Telegram: {bool(TELEGRAM_BOT_TOKEN)}")
-print(f"Gemini API Key: {bool(GEMINI_API_KEY)}")
-print(f"MongoDB URI: {bool(MONGODB_URI)}")
-
 # Inicializar serviços
-try:
-    bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
-    print("Bot Telegram inicializado com sucesso!")
-except Exception as e:
-    print(f"Erro ao inicializar bot Telegram: {e}")
+bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
+# Configuração do Gemini
 try:
-    genai.configure(api_key=GEMINI_API_KEY)
+    genai.configure(api_key=GOOGLE_API_KEY)  # Usando GOOGLE_API_KEY
     model = genai.GenerativeModel('gemini-pro')
     print("Modelo Gemini configurado com sucesso!")
 except Exception as e:
