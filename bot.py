@@ -81,9 +81,18 @@ def configurar_mongodb():
     global manutencoes_collection
     try:
         logger.info("Iniciando conexão com MongoDB")
-        mongo_client = MongoClient(MONGODB_URI, 
-                                   server_api=ServerApi('1'), 
-                                   tls=True)
+        # Configurações SSL mais flexíveis
+        mongo_client = MongoClient(
+            MONGODB_URI, 
+            server_api=ServerApi('1'), 
+            tls=True,
+            tlsAllowInvalidCertificates=True,  # Permite certificados inválidos
+            socketTimeoutMS=30000,  # Timeout de 30 segundos
+            connectTimeoutMS=30000,
+            serverSelectionTimeoutMS=30000,
+            waitQueueTimeoutMS=30000
+        )
+        
         db = mongo_client['empilhadeiras_db']
         manutencoes_collection = db['manutencoes']
         logger.info("Conexão com MongoDB estabelecida com sucesso!")
@@ -171,6 +180,33 @@ def handle_message(message):
         
         solucao = buscar_solucao_ia(modelo, problema)
         
+        # Dividir mensagem longa em partes
+        def dividir_mensagem(texto, max_length=4000):
+            paragrafos = texto.split('\n')
+            mensagens = []
+            mensagem_atual = ""
+            
+            for paragrafo in paragrafos:
+                if len(mensagem_atual) + len(paragrafo) > max_length:
+                    mensagens.append(mensagem_atual.strip())
+                    mensagem_atual = ""
+                mensagem_atual += paragrafo + '\n'
+            
+            if mensagem_atual:
+                mensagens.append(mensagem_atual.strip())
+            
+            return mensagens
+        
+        mensagens = dividir_mensagem(solucao)
+        
+        # Enviar primeira mensagem
+        primeira_mensagem = f"🔧 Diagnóstico para {modelo} - Código {problema}:\n\n{mensagens[0]}"
+        bot.reply_to(message, primeira_mensagem)
+        
+        # Enviar mensagens subsequentes
+        for msg_adicional in mensagens[1:]:
+            bot.send_message(message.chat.id, msg_adicional)
+        
         if manutencoes_collection is not None:
             try:
                 registro = {
@@ -184,8 +220,8 @@ def handle_message(message):
             except Exception as db_error:
                 logger.error(f"Erro ao salvar no banco de dados: {db_error}")
         
-        bot.reply_to(message, 
-            f"🔧 Diagnóstico para {modelo} - Código {problema}:\n\n{solucao}\n\n"
+        # Mensagem final de feedback
+        bot.send_message(message.chat.id, 
             "Estas informações ajudaram a resolver seu problema? (Sim/Não)")
     
     except Exception as e:
