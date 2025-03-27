@@ -22,16 +22,23 @@ bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 try:
     genai.configure(api_key=GOOGLE_API_KEY)
     
-    # Listar modelos disponíveis
-    for m in genai.list_models():
-        if 'generateContent' in m.supported_generation_methods:
-            print(m.name)
+    # Listar TODOS os modelos e suas informações
+    print("Modelos disponíveis:")
+    models = genai.list_models()
+    for m in models:
+        print(f"Nome: {m.name}")
+        print(f"Descrição: {m.description}")
+        print(f"Métodos suportados: {m.supported_generation_methods}")
+        print("---")
     
-    # Usar o modelo disponível
-    model = genai.GenerativeModel('gemini-1.0-pro')  # Alterado para esta versão
+    # Tentar usar um modelo genérico
+    model = genai.GenerativeModel('gemini-pro')
     print("Modelo Gemini configurado com sucesso!")
 except Exception as e:
-    print(f"Erro ao configurar Gemini: {e}")
+    print(f"Erro COMPLETO ao configurar Gemini: {e}")
+    print(f"Tipo de erro: {type(e)}")
+    import traceback
+    traceback.print_exc()
 
 def buscar_solucao_ia(modelo, problema):
     """
@@ -56,7 +63,12 @@ def buscar_solucao_ia(modelo, problema):
     
     except Exception as e:
         print(f"Erro detalhado na consulta de IA: {e}")
+        print(f"Tipo de erro: {type(e)}")
+        import traceback
+        traceback.print_exc()
         return f"Erro na consulta de IA: {str(e)}"
+
+# Resto do código permanece o mesmo
 
 # Variável global para verificação
 manutencoes_collection = None
