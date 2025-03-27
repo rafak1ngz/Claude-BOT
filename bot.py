@@ -19,6 +19,9 @@ MONGODB_URI = os.getenv('MONGODB_URI')
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 openai.api_key = OPENAI_API_KEY
 
+# Variável global para verificação
+manutencoes_collection = None
+
 # Configuração segura do MongoDB
 try:
     mongo_client = MongoClient(MONGODB_URI, 
@@ -30,7 +33,6 @@ try:
     print("Conexão com MongoDB estabelecida com sucesso!")
 except Exception as e:
     print(f"Erro na conexão com MongoDB: {e}")
-    manutencoes_collection = None
 
 def buscar_solucao_ia(modelo, problema):
     """
@@ -83,14 +85,17 @@ def handle_message(message):
         solucao = buscar_solucao_ia(modelo, problema)
         
         # Salvar no banco de dados, se a conexão existir
-        if manutencoes_collection:
-            registro = {
-                'modelo': modelo,
-                'problema': problema,
-                'solucao': solucao,
-                'data': datetime.now()
-            }
-            manutencoes_collection.insert_one(registro)
+        if manutencoes_collection is not None:
+            try:
+                registro = {
+                    'modelo': modelo,
+                    'problema': problema,
+                    'solucao': solucao,
+                    'data': datetime.now()
+                }
+                manutencoes_collection.insert_one(registro)
+            except Exception as db_error:
+                print(f"Erro ao salvar no banco de dados: {db_error}")
         
         # Responder ao usuário
         bot.reply_to(message, f"Solução encontrada:\n{solucao}\n\n"
