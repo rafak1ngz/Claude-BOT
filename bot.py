@@ -37,49 +37,75 @@ manutencoes_collection = None
 bot_running = threading.Event()
 user_state = {}  # Dicionário para rastrear o estado do usuário
 
-# Função de sanitização de HTML melhorada
 def sanitizar_html(texto):
     try:
-        # Remover cabeçalhos duplicados
+        # Remover completamente tags HTML não suportadas
+        tags_removidas = [
+            r'<!DOCTYPE.*?>', 
+            r'<html.*?>', 
+            r'</html>', 
+            r'<head.*?>', 
+            r'</head>', 
+            r'<body.*?>', 
+            r'</body>', 
+            r'<title.*?>', 
+            r'</title>',
+            r'<meta.*?>'
+        ]
+        
+        for tag in tags_removidas:
+            texto = re.sub(tag, '', texto, flags=re.DOTALL | re.IGNORECASE)
+        
+        # Remover marcadores de código
+        texto = re.sub(r'```html', '', texto)
+        texto = re.sub(r'```', '', texto)
+        
+        # Dividir o texto em linhas
         linhas = texto.split('\n')
-        linhas_unicas = []
+        
+        # Filtrar linhas
+        linhas_filtradas = []
         titulos_vistos = set()
         
         for linha in linhas:
             linha = linha.strip()
             
-            # Remover linhas de código e cabeçalhos HTML
-            if linha.startswith('```html') or linha.startswith('<!DOCTYPE') or linha.startswith('<html'):
+            # Pular linhas vazias
+            if not linha:
                 continue
             
-            # Filtrar títulos duplicados
+            # Remover títulos duplicados
             if linha.startswith('Diagnóstico Técnico'):
                 if linha not in titulos_vistos:
                     titulos_vistos.add(linha)
-                else:
-                    continue
+                    linhas_filtradas.append(linha)
+                continue
             
-            linhas_unicas.append(linha)
+            # Remover emojis duplicados no cabeçalho
+            if linha.startswith('🔧 Diagnóstico'):
+                linha = linha.split('🚨')[0].strip()
+            
+            linhas_filtradas.append(linha)
         
-        # Remover emojis duplicados no cabeçalho
-        for i in range(len(linhas_unicas)):
-            if linhas_unicas[i].startswith('🔧 Diagnóstico'):
-                linhas_unicas[i] = linhas_unicas[i].split('🚨')[0].strip()
+        # Juntar linhas filtradas
+        texto_limpo = '\n'.join(linhas_filtradas)
         
-        # Juntar linhas
-        texto = '\n'.join(linhas_unicas)
+        # Escapar o texto para evitar parsing incorreto
+        texto_escaped = html.escape(texto_limpo, quote=False)
         
-        # Limpar formatações extras
-        texto = re.sub(r'```', '', texto)
+        # Restaurar tags HTML básicas permitidas
+        tags_permitidas = ['b', 'i', 'u', 'code', 'pre']
+        for tag in tags_permitidas:
+            texto_escaped = texto_escaped.replace(f'&lt;{tag}&gt;', f'<{tag}>')
+            texto_escaped = texto_escaped.replace(f'&lt;/{tag}&gt;', f'</{tag}>')
         
-        return texto.strip()
+        return texto_escaped.strip()
     
     except Exception as e:
         logger.error(f"Erro na sanitização HTML: {e}")
         return "Erro ao processar resposta técnica."
 
 def dividir_mensagem(texto, max_length=4000):
-    # Dividir mensagem mantendo a estrutura
     paragrafos = texto.split('\n')
     mensagens = []
     mensagem_atual = ""
@@ -100,7 +126,6 @@ def dividir_mensagem(texto, max_length=4000):
         mensagens.append(mensagem_atual.strip())
     
     return mensagens
-
 
 # Configuração do Gemini
 def configurar_gemini():
@@ -312,12 +337,15 @@ def handle_message(message):
             equipamento = user_state[user_id]['equipamento']
             solucao = buscar_solucao_ia(equipamento, problema)
             
-            # Dividir mensagem longa em partes
+            # Dividir mensagem
             mensagens = dividir_mensagem(solucao)
             
-            # Enviar primeira mensagem
-            primeira_mensagem = f"🔧 Diagnóstico para {equipamento}:\n\n{mensagens[0]}"
-            bot.reply_to(message, primeira_mensagem)
+            # Criar primeira mensagem com cabeçalho
+            primeira_mensagem = f"🔧 Diagnóstico para {equipamento}"
+            
+            # Enviar primeira mensagem (cabeçalho + primeiro conteúdo)
+            if mensagens:
+                bot.reply_to(message, f"{primeira_mensagem}\n\n{mensagens[0]}")
             
             # Enviar mensagens subsequentes
             for msg_adicional in mensagens[1:]:
