@@ -35,9 +35,9 @@ MONGODB_URI = os.getenv('MONGODB_URI')
 model = None
 manutencoes_collection = None
 bot_running = threading.Event()
-user_state = {}  # Novo dicionário para rastrear o estado do usuário
+user_state = {}  # Dicionário para rastrear o estado do usuário
 
-# Função de sanitização de HTML (mantida igual ao código original)
+# Função de sanitização de HTML melhorada
 def sanitizar_html(texto):
     try:
         # Remover tags HTML não desejadas
@@ -87,7 +87,7 @@ def sanitizar_html(texto):
         logger.error(f"Erro na sanitização HTML: {e}")
         return "Erro ao processar resposta técnica."
 
-# Funções de configuração (Gemini e MongoDB permanecem iguais)
+# Configuração do Gemini
 def configurar_gemini():
     global model
     try:
@@ -129,6 +129,7 @@ def configurar_gemini():
         logger.error(f"Erro crítico na configuração do Gemini: {e}", exc_info=True)
         return False
 
+# Configuração do MongoDB
 def configurar_mongodb():
     global manutencoes_collection
     try:
@@ -162,7 +163,8 @@ def buscar_solucao_ia(equipamento, problema):
             raise ValueError("Modelo Gemini não configurado")
         
         prompt = f"""
-        // Informações para guardar
+        // Informações para diagnóstico único
+        Foque EXCLUSIVAMENTE nesta situação específica:
         Equipamento: {equipamento}
         Descrição do Problema: {problema}
 
@@ -176,14 +178,17 @@ def buscar_solucao_ia(equipamento, problema):
         4. Passos para reparo ou manutenção
         5. Peças potencialmente envolvidas //(informar com código do fabricante)
 
+        // Regras importantes:
+        • IGNORE qualquer contexto ou problema anterior
+        • Concentre-se APENAS no problema atual descrito
+        • Responda considerando SOMENTE as informações atuais
+        
         // Regras de formatação HTML
         • Use <b>negrito</b> para títulos
         • Use <i>itálico</i> para ênfases
         • Utilize <br> para quebras de linha
         • Crie listas com • no início de cada item
         • Seja técnico e direto
-        • Não use tags HTML complexas ou DOCTYPE
-        • Use apenas as listadas aqui
         """
         
         logger.info(f"Enviando prompt para Gemini")
@@ -256,13 +261,25 @@ def mensagem_inicial(message):
 def handle_message(message):
     user_id = message.from_user.id
     
-    # Se o usuário não tiver estado definido, iniciar do zero
-    if user_id not in user_state:
+    # Se o usuário não tiver estado definido ou estiver fora do fluxo correto, reiniciar
+    if (user_id not in user_state or 
+        user_state[user_id].get('stage') not in ['intro', 'problem_description']):
+        # Sempre redirecionar para a mensagem inicial
+        bot.reply_to(message, 
+            "🚧 Assistente Técnico de Manutenção 🚧\n\n"
+            "Vamos começar: Por favor, informe detalhes do equipamento:\n"
+            "• Marca\n"
+            "• Modelo\n"
+            "• Versão/Ano\n\n"
+            "Exemplo: Transpaleteira elétrica Linde T20 SP - 2022"
+        )
+        # Resetar o estado para o estágio inicial
         user_state[user_id] = {'stage': 'intro'}
-    
-    current_stage = user_state[user_id].get('stage', 'intro')
+        return
     
     try:
+        current_stage = user_state[user_id].get('stage')
+        
         if current_stage == 'intro':
             # Capturar informações do equipamento
             equipamento = message.text.strip()
@@ -336,7 +353,6 @@ def handle_message(message):
         logger.error(f"Erro detalhado ao processar: {e}", exc_info=True)
         bot.reply_to(message, f"Desculpe, ocorreu um erro: {str(e)}")
 
-# Funções start_bot() e main() permanecem iguais ao código original
 def start_bot():
     tentativas = 0
     max_tentativas = 5
