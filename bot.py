@@ -40,11 +40,18 @@ user_state = {}  # Dicionário para rastrear o estado do usuário
 # Função de sanitização de HTML melhorada
 def sanitizar_html(texto):
     try:
-        # Remover tags HTML não desejadas
+        # Remover cabeçalhos HTML indesejados
+        texto = re.sub(r'<!DOCTYPE.*?>', '', texto, flags=re.DOTALL)
         texto = re.sub(r'<html.*?>', '', texto, flags=re.DOTALL)
         texto = re.sub(r'</html>', '', texto)
         texto = re.sub(r'<body.*?>', '', texto, flags=re.DOTALL)
         texto = re.sub(r'</body>', '', texto)
+        
+        # Remover tags ul e li, mantendo o conteúdo
+        texto = re.sub(r'<ul>', '', texto)
+        texto = re.sub(r'</ul>', '', texto)
+        texto = re.sub(r'<li>', '• ', texto)
+        texto = re.sub(r'</li>', '\n', texto)
         
         # Lista de tags permitidas
         tags_permitidas = ['b', 'i', 'u', 'code', 'pre']
@@ -61,10 +68,6 @@ def sanitizar_html(texto):
         # Substituir tags de parágrafo e quebra de linha
         for tag_original, tag_substituicao in mapeamento_tags.items():
             texto = texto.replace(tag_original, tag_substituicao)
-        
-        # Remover tags li e converter para linhas com bullet
-        texto = re.sub(r'<li>', '• ', texto)
-        texto = re.sub(r'</li>', '\n', texto)
         
         # Remover outras tags não permitidas
         for tag in re.findall(r'</?[a-zA-Z]+.*?>', texto):
@@ -223,8 +226,11 @@ def buscar_solucao_ia(equipamento, problema):
         return f"🚫 Ops! Não consegui processar o diagnóstico. Erro: {str(e)} 😓"
 
 def dividir_mensagem(texto, max_length=4000):
-    # Sanitize the text first
-    texto_sanitizado = sanitizar_html(texto)
+    # Evitar duplicação de cabeçalho
+    padrao_emoji = r'^🔧 Diagnóstico para .*$'
+    linhas = texto.split('\n')
+    linhas_filtradas = [linha for linha in linhas if not re.match(padrao_emoji, linha)]
+    texto_sanitizado = '\n'.join(linhas_filtradas)
     
     paragrafos = texto_sanitizado.split('\n')
     mensagens = []
