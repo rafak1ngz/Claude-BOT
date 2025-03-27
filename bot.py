@@ -40,58 +40,37 @@ user_state = {}  # Dicionário para rastrear o estado do usuário
 # Função de sanitização de HTML melhorada
 def sanitizar_html(texto):
     try:
-        # Remover completamente tags HTML não suportadas pelo Telegram
-        tags_removidas = [
-            r'<!DOCTYPE.*?>', 
-            r'<html.*?>', 
-            r'</html>', 
-            r'<head.*?>', 
-            r'</head>', 
-            r'<body.*?>', 
-            r'</body>', 
-            r'<title.*?>', 
-            r'</title>',
-            r'<meta.*?>'
-        ]
+        # Remover cabeçalhos duplicados
+        linhas = texto.split('\n')
+        linhas_unicas = []
+        titulos_vistos = set()
         
-        for tag in tags_removidas:
-            texto = re.sub(tag, '', texto, flags=re.DOTALL | re.IGNORECASE)
+        for linha in linhas:
+            linha = linha.strip()
+            
+            # Remover linhas de código e cabeçalhos HTML
+            if linha.startswith('```html') or linha.startswith('<!DOCTYPE') or linha.startswith('<html'):
+                continue
+            
+            # Filtrar títulos duplicados
+            if linha.startswith('Diagnóstico Técnico'):
+                if linha not in titulos_vistos:
+                    titulos_vistos.add(linha)
+                else:
+                    continue
+            
+            linhas_unicas.append(linha)
         
-        # Limpar tags de formatação não suportadas
-        texto = re.sub(r'<style.*?</style>', '', texto, flags=re.DOTALL | re.IGNORECASE)
-        texto = re.sub(r'<script.*?</script>', '', texto, flags=re.DOTALL | re.IGNORECASE)
+        # Remover emojis duplicados no cabeçalho
+        for i in range(len(linhas_unicas)):
+            if linhas_unicas[i].startswith('🔧 Diagnóstico'):
+                linhas_unicas[i] = linhas_unicas[i].split('🚨')[0].strip()
         
-        # Remover tags ul e li, mantendo o conteúdo
-        texto = re.sub(r'<ul>', '', texto)
-        texto = re.sub(r'</ul>', '', texto)
-        texto = re.sub(r'<li>', '• ', texto)
-        texto = re.sub(r'</li>', '\n', texto)
+        # Juntar linhas
+        texto = '\n'.join(linhas_unicas)
         
-        # Remover tags HTML não permitidas pelo Telegram
-        tags_telegram = ['b', 'i', 'u', 'code', 'pre']
-        
-        # Remover outras tags 
-        for tag in re.findall(r'</?[a-zA-Z]+.*?>', texto):
-            tag_limpa = re.sub(r'[<>/]', '', tag).split()[0]
-            if tag_limpa not in tags_telegram:
-                texto = texto.replace(tag, '')
-        
-        # Limpar bulletpoints duplicados
-        texto = re.sub(r'•\s*•', '•', texto)
-        
-        # Remover espaços extras no início das linhas
-        texto = re.sub(r'^\s+', '', texto, flags=re.MULTILINE)
-        
-        # Limpar linhas em branco extras
-        texto = re.sub(r'\n\n+', '\n\n', texto)
-        
-        # Escapar caracteres especiais para evitar quebra de parsing
-        texto = html.escape(texto, quote=False)
-        
-        # Restaurar tags permitidas
-        for tag in tags_telegram:
-            texto = texto.replace(f'&lt;{tag}&gt;', f'<{tag}>')
-            texto = texto.replace(f'&lt;/{tag}&gt;', f'</{tag}>')
+        # Limpar formatações extras
+        texto = re.sub(r'```', '', texto)
         
         return texto.strip()
     
@@ -100,23 +79,28 @@ def sanitizar_html(texto):
         return "Erro ao processar resposta técnica."
 
 def dividir_mensagem(texto, max_length=4000):
-    # Evitar duplicação de cabeçalho
-    linhas = texto.split('\n')
-    
-    paragrafos = [linha for linha in linhas if linha.strip()]
+    # Dividir mensagem mantendo a estrutura
+    paragrafos = texto.split('\n')
     mensagens = []
     mensagem_atual = ""
     
     for paragrafo in paragrafos:
-        if len(mensagem_atual) + len(paragrafo) > max_length:
+        # Se a próxima linha ultrapassar o limite, criar nova mensagem
+        if len(mensagem_atual) + len(paragrafo) + 2 > max_length:
             mensagens.append(mensagem_atual.strip())
             mensagem_atual = ""
-        mensagem_atual += paragrafo + '\n'
+        
+        # Adicionar linha à mensagem atual
+        if mensagem_atual:
+            mensagem_atual += "\n"
+        mensagem_atual += paragrafo
     
+    # Adicionar última mensagem
     if mensagem_atual:
         mensagens.append(mensagem_atual.strip())
     
     return mensagens
+
 
 # Configuração do Gemini
 def configurar_gemini():
