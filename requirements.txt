@@ -1,6 +1,4 @@
-flask
-pyTelegramBotAPI
+telebot
 python-dotenv
-openai>=1.0.0
 pymongo
-requests
+google-generativeai
