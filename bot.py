@@ -9,6 +9,8 @@ from pymongo.server_api import ServerApi
 from dotenv import load_dotenv
 from datetime import datetime
 import sys
+import re
+import html
 
 # Configurar logging
 logging.basicConfig(
@@ -34,6 +36,22 @@ model = None
 manutencoes_collection = None
 bot_running = threading.Event()
 user_feedback_state = {}
+
+# Função de sanitização de HTML
+def sanitizar_html(texto):
+    # Remove tags HTML não suportadas
+    texto = re.sub(r'<!.*?>', '', texto)
+    
+    # Converte entidades HTML especiais
+    texto = html.escape(texto)
+    
+    # Restaura tags HTML permitidas
+    tags_permitidas = ['b', 'i', 'u', 'code', 'pre']
+    for tag in tags_permitidas:
+        texto = texto.replace(f'&lt;{tag}&gt;', f'<{tag}>')
+        texto = texto.replace(f'&lt;/{tag}&gt;', f'</{tag}>')
+    
+    return texto
 
 # Configuração do Gemini
 def configurar_gemini():
@@ -115,15 +133,12 @@ def buscar_solucao_ia(modelo, problema):
         Modelo: {modelo}
         Código de Falha: {problema}
 
-        Forneça um diagnóstico técnico CURTO e DIRETO em formato HTML:
-        • Causa mais provável da falha
-        • Solução rápida
-        • 3-4 passos práticos de reparo
+        Forneça um diagnóstico técnico CURTO e DIRETO em texto simples com formatação HTML limitada:
+        • Use apenas <b> para negrito
+        • Use apenas <i> para itálico 
+        • Use tags completas e corretamente fechadas
+        • Evite tags HTML complexas ou aninhadas
         • Tom amigável e motivador
-        • Use tags HTML para formatação:
-          - <b>Negrito</b>
-          - <i>Itálico</i>
-          - <u>Sublinhado</u>
         • Caso precise mencionar peças, use o formato:
           Possíveis substituições: 
           <b>Sensor do acelerador</b> - código XXXXX
@@ -147,8 +162,11 @@ def buscar_solucao_ia(modelo, problema):
             }
         )
         
+        # Sanitizar a resposta HTML
+        texto_resposta = sanitizar_html(resposta.text)
+        
         # Adicionar emoji para dar mais personalidade
-        texto_formatado = f"🔧 Diagnóstico para {modelo} 🚨\n\n{resposta.text}"
+        texto_formatado = f"🔧 Diagnóstico para {modelo} 🚨\n\n{texto_resposta}"
         
         logger.info("Resposta do Gemini recebida")
         return texto_formatado
@@ -156,6 +174,25 @@ def buscar_solucao_ia(modelo, problema):
     except Exception as e:
         logger.error(f"Erro na consulta de IA: {e}", exc_info=True)
         return f"🚫 Ops! Não consegui processar o diagnóstico. Erro: {str(e)} 😓"
+
+def dividir_mensagem(texto, max_length=4000):
+    # Sanitize the text first
+    texto_sanitizado = sanitizar_html(texto)
+    
+    paragrafos = texto_sanitizado.split('\n')
+    mensagens = []
+    mensagem_atual = ""
+    
+    for paragrafo in paragrafos:
+        if len(mensagem_atual) + len(paragrafo) > max_length:
+            mensagens.append(mensagem_atual.strip())
+            mensagem_atual = ""
+        mensagem_atual += paragrafo + '\n'
+    
+    if mensagem_atual:
+        mensagens.append(mensagem_atual.strip())
+    
+    return mensagens
 
 @bot.message_handler(commands=['start'])
 def mensagem_inicial(message):
@@ -209,22 +246,6 @@ def handle_message(message):
         solucao = buscar_solucao_ia(modelo, problema)
         
         # Dividir mensagem longa em partes
-        def dividir_mensagem(texto, max_length=4000):
-            paragrafos = texto.split('\n')
-            mensagens = []
-            mensagem_atual = ""
-            
-            for paragrafo in paragrafos:
-                if len(mensagem_atual) + len(paragrafo) > max_length:
-                    mensagens.append(mensagem_atual.strip())
-                    mensagem_atual = ""
-                mensagem_atual += paragrafo + '\n'
-            
-            if mensagem_atual:
-                mensagens.append(mensagem_atual.strip())
-            
-            return mensagens
-        
         mensagens = dividir_mensagem(solucao)
         
         # Enviar primeira mensagem
