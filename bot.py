@@ -41,37 +41,39 @@ def configurar_gemini():
         logger.info("Iniciando configuração do Gemini")
         genai.configure(api_key=GOOGLE_API_KEY)
         
-        models = genai.list_models()
-        modelos_texto = [
-            m.name for m in models 
-            if 'generateContent' in m.supported_generation_methods 
-            and ('pro' in m.name.lower() or 'flash' in m.name.lower())
-        ]
-        
-        logger.info("Modelos de texto disponíveis:")
-        for m in modelos_texto:
-            logger.info(m)
-        
-        # Priorizar modelos mais recentes
+        # Lista de modelos recomendados para substituição
         modelos_preferidos = [
-            'models/gemini-1.5-pro-latest',
-            'models/gemini-1.5-flash-latest',
-            'models/gemini-1.5-pro',
-            'models/gemini-1.5-flash'
+            'gemini-1.5-pro-latest',
+            'gemini-1.5-pro',
+            'gemini-1.5-flash-latest', 
+            'gemini-1.5-flash',
+            'gemini-pro'
         ]
         
-        modelo_selecionado = next((m for m in modelos_preferidos if m in modelos_texto), None)
+        modelo_funcionando = None
         
-        if modelo_selecionado:
-            logger.info(f"Selecionando modelo: {modelo_selecionado}")
-            model = genai.GenerativeModel(modelo_selecionado)
-            logger.info("Modelo Gemini configurado com sucesso!")
+        for nome_modelo in modelos_preferidos:
+            try:
+                logger.info(f"Tentando configurar modelo: {nome_modelo}")
+                model = genai.GenerativeModel(nome_modelo)
+                
+                # Teste rápido de geração de conteúdo
+                teste_resposta = model.generate_content("Sistema de empilhadeira")
+                
+                logger.info(f"Modelo {nome_modelo} configurado com sucesso!")
+                modelo_funcionando = nome_modelo
+                break
+            except Exception as e:
+                logger.warning(f"Falha ao configurar {nome_modelo}: {e}")
+        
+        if modelo_funcionando:
             return True
         else:
-            logger.error("Nenhum modelo de texto encontrado")
+            logger.error("Nenhum modelo de texto encontrado ou funcional")
             return False
+    
     except Exception as e:
-        logger.error(f"Erro na configuração do Gemini: {e}", exc_info=True)
+        logger.error(f"Erro crítico na configuração do Gemini: {e}", exc_info=True)
         return False
 
 # Configuração do MongoDB
@@ -113,7 +115,24 @@ def buscar_solucao_ia(modelo, problema):
         """
         
         logger.info(f"Enviando prompt para Gemini")
-        resposta = model.generate_content(prompt, timeout=30)
+        # Adiciona parâmetros de segurança
+        safety_settings = [
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
+        ]
+        
+        resposta = model.generate_content(
+            prompt, 
+            safety_settings=safety_settings,
+            generation_config={
+                "max_output_tokens": 2048,
+                "temperature": 0.5,
+                "top_p": 1
+            }
+        )
+        
         logger.info("Resposta do Gemini recebida")
         return resposta.text
     
