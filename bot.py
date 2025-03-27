@@ -40,12 +40,31 @@ user_state = {}  # Dicionário para rastrear o estado do usuário
 # Função de sanitização de HTML melhorada
 def sanitizar_html(texto):
     try:
-        # Remover cabeçalhos HTML indesejados
+        # Remover cabeçalhos e tags HTML indesejados
         texto = re.sub(r'<!DOCTYPE.*?>', '', texto, flags=re.DOTALL)
         texto = re.sub(r'<html.*?>', '', texto, flags=re.DOTALL)
         texto = re.sub(r'</html>', '', texto)
         texto = re.sub(r'<body.*?>', '', texto, flags=re.DOTALL)
         texto = re.sub(r'</body>', '', texto)
+        
+        # Remover títulos duplicados
+        linhas = texto.split('\n')
+        linhas_unicas = []
+        titulos_vistos = set()
+        
+        for linha in linhas:
+            linha = linha.strip()
+            if linha.startswith('Diagnóstico Técnico'):
+                if linha not in titulos_vistos:
+                    titulos_vistos.add(linha)
+                    linhas_unicas.append(linha)
+            else:
+                linhas_unicas.append(linha)
+        
+        texto = '\n'.join(linhas_unicas)
+        
+        # Limpar bulletpoints duplicados
+        texto = re.sub(r'•\s*•', '•', texto)
         
         # Remover tags ul e li, mantendo o conteúdo
         texto = re.sub(r'<ul>', '', texto)
@@ -53,42 +72,36 @@ def sanitizar_html(texto):
         texto = re.sub(r'<li>', '• ', texto)
         texto = re.sub(r'</li>', '\n', texto)
         
-        # Lista de tags permitidas
-        tags_permitidas = ['b', 'i', 'u', 'code', 'pre']
+        # Remover espaços extras no início das linhas
+        texto = re.sub(r'^\s+', '', texto, flags=re.MULTILINE)
         
-        # Dicionário para mapeamento de tags
-        mapeamento_tags = {
-            '<p>': '\n',
-            '</p>': '\n',
-            '<br>': '\n',
-            '<br/>': '\n',
-            '<br />': '\n'
-        }
+        # Limpar linhas em branco extras
+        texto = re.sub(r'\n\n+', '\n\n', texto)
         
-        # Substituir tags de parágrafo e quebra de linha
-        for tag_original, tag_substituicao in mapeamento_tags.items():
-            texto = texto.replace(tag_original, tag_substituicao)
-        
-        # Remover outras tags não permitidas
-        for tag in re.findall(r'</?[a-zA-Z]+.*?>', texto):
-            if not any(f'<{permitida}' in tag or f'</{permitida}' in tag for permitida in tags_permitidas):
-                texto = texto.replace(tag, '')
-        
-        # Primeiro, escape de caracteres especiais
-        texto = html.escape(texto)
-        
-        # Restaurar tags permitidas
-        for tag in tags_permitidas:
-            texto = texto.replace(f'&lt;{tag}&gt;', f'<{tag}>')
-            texto = texto.replace(f'&lt;/{tag}&gt;', f'</{tag}>')
-        
-        # Remover espaços extras e linhas em branco
-        texto = re.sub(r'\n\s*\n', '\n\n', texto).strip()
-        
-        return texto
+        return texto.strip()
+    
     except Exception as e:
         logger.error(f"Erro na sanitização HTML: {e}")
         return "Erro ao processar resposta técnica."
+
+def dividir_mensagem(texto, max_length=4000):
+    # Evitar duplicação de cabeçalho
+    linhas = texto.split('\n')
+    
+    paragrafos = [linha for linha in linhas if linha.strip()]
+    mensagens = []
+    mensagem_atual = ""
+    
+    for paragrafo in paragrafos:
+        if len(mensagem_atual) + len(paragrafo) > max_length:
+            mensagens.append(mensagem_atual.strip())
+            mensagem_atual = ""
+        mensagem_atual += paragrafo + '\n'
+    
+    if mensagem_atual:
+        mensagens.append(mensagem_atual.strip())
+    
+    return mensagens
 
 # Configuração do Gemini
 def configurar_gemini():
@@ -224,28 +237,6 @@ def buscar_solucao_ia(equipamento, problema):
     except Exception as e:
         logger.error(f"Erro na consulta de IA: {e}", exc_info=True)
         return f"🚫 Ops! Não consegui processar o diagnóstico. Erro: {str(e)} 😓"
-
-def dividir_mensagem(texto, max_length=4000):
-    # Evitar duplicação de cabeçalho
-    padrao_emoji = r'^🔧 Diagnóstico para .*$'
-    linhas = texto.split('\n')
-    linhas_filtradas = [linha for linha in linhas if not re.match(padrao_emoji, linha)]
-    texto_sanitizado = '\n'.join(linhas_filtradas)
-    
-    paragrafos = texto_sanitizado.split('\n')
-    mensagens = []
-    mensagem_atual = ""
-    
-    for paragrafo in paragrafos:
-        if len(mensagem_atual) + len(paragrafo) > max_length:
-            mensagens.append(mensagem_atual.strip())
-            mensagem_atual = ""
-        mensagem_atual += paragrafo + '\n'
-    
-    if mensagem_atual:
-        mensagens.append(mensagem_atual.strip())
-    
-    return mensagens
 
 @bot.message_handler(commands=['start'])
 def mensagem_inicial(message):
