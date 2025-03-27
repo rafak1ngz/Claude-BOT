@@ -115,11 +115,14 @@ def buscar_solucao_ia(modelo, problema):
         Código de Falha: {problema}
 
         Forneça um diagnóstico técnico CURTO e DIRETO:
-        • Cause mais provável da falha
+        • Causa mais provável da falha
         • Solução rápida
-        • 2-3 passos práticos de reparo
+        • 3-4 passos práticos de reparo
         • Tom amigável e motivador
-        • Use emojis para tornar mais interessante
+        • Responta com formatação para Telegram
+        • Caso alguma peça possa ser necessário a troca, informe no final da seguinte maneira:
+        [• Possíveis substituições de peças: 
+         - Descrição - código (exemplo: Sensor do acelerador - código XXXXX)]
         """
         
         logger.info(f"Enviando prompt para Gemini")
