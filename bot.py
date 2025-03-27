@@ -37,21 +37,55 @@ manutencoes_collection = None
 bot_running = threading.Event()
 user_feedback_state = {}
 
-# Função de sanitização de HTML
+# Função de sanitização de HTML melhorada
 def sanitizar_html(texto):
-    # Remove tags HTML não suportadas
-    texto = re.sub(r'<!.*?>', '', texto)
-    
-    # Converte entidades HTML especiais
-    texto = html.escape(texto)
-    
-    # Restaura tags HTML permitidas
-    tags_permitidas = ['b', 'i', 'u', 'code', 'pre']
-    for tag in tags_permitidas:
-        texto = texto.replace(f'&lt;{tag}&gt;', f'<{tag}>')
-        texto = texto.replace(f'&lt;/{tag}&gt;', f'</{tag}>')
-    
-    return texto
+    try:
+        # Remover tags HTML não desejadas
+        texto = re.sub(r'<html.*?>', '', texto, flags=re.DOTALL)
+        texto = re.sub(r'</html>', '', texto)
+        texto = re.sub(r'<body.*?>', '', texto, flags=re.DOTALL)
+        texto = re.sub(r'</body>', '', texto)
+        
+        # Lista de tags permitidas
+        tags_permitidas = ['b', 'i', 'u', 'code', 'pre']
+        
+        # Dicionário para mapeamento de tags
+        mapeamento_tags = {
+            '<p>': '\n',
+            '</p>': '\n',
+            '<br>': '\n',
+            '<br/>': '\n',
+            '<br />': '\n'
+        }
+        
+        # Substituir tags de parágrafo e quebra de linha
+        for tag_original, tag_substituicao in mapeamento_tags.items():
+            texto = texto.replace(tag_original, tag_substituicao)
+        
+        # Remover tags li e converter para linhas com bullet
+        texto = re.sub(r'<li>', '• ', texto)
+        texto = re.sub(r'</li>', '\n', texto)
+        
+        # Remover outras tags não permitidas
+        for tag in re.findall(r'</?[a-zA-Z]+.*?>', texto):
+            if not any(f'<{permitida}' in tag or f'</{permitida}' in tag for permitida in tags_permitidas):
+                texto = texto.replace(tag, '')
+        
+        # Primeiro, escape de caracteres especiais
+        texto = html.escape(texto)
+        
+        # Restaurar tags permitidas
+        for tag in tags_permitidas:
+            texto = texto.replace(f'&lt;{tag}&gt;', f'<{tag}>')
+            texto = texto.replace(f'&lt;/{tag}&gt;', f'</{tag}>')
+        
+        # Remover espaços extras e linhas em branco
+        texto = re.sub(r'\n\s*\n', '\n\n', texto).strip()
+        
+        return texto
+    except Exception as e:
+        logger.error(f"Erro na sanitização HTML: {e}")
+        return "Erro ao processar resposta técnica."
 
 # Configuração do Gemini
 def configurar_gemini():
@@ -133,24 +167,20 @@ def buscar_solucao_ia(modelo, problema):
         Modelo: {modelo}
         Código de Falha: {problema}
 
-        Forneça um diagnóstico técnico CURTO e DIRETO:
+        Gere um diagnóstico técnico CURTO e DIRETO em HTML:
         1. Análise do código de falha {problema}
         2. Possíveis causas da falha
         3. Procedimento de diagnóstico
         4. Passos para reparo ou manutenção
-        5. Peças potencialmente envolvidas com seus devidos códigos
+        5. Peças potencialmente envolvidas com seus códigos
 
-        Instruções para códigos HTML:
-        • texto simples com formatação HTML limitada, será utilizado no telegram
-        • Use apenas <b> para negrito
-        • Use apenas <i> para itálico 
-        • Use apenas <u> para sublinhado 
-        • Use apenas <br> para pulhar linhas
-        • Use tags corretamente fechadas
-        • Não utilize outras tags HTML além destas informadas
-        • Tom amigável e motivador
-
-        Observação: essa mensgem está sendo visualizada por um técnico profissional do segmento, então não precisa se limitar em informações mais técnicas.
+        Instruções de formatação HTML:
+        • Use <b>negrito</b> para títulos
+        • Use <i>itálico</i> para ênfases
+        • Utilize <br> para quebras de linha
+        • Crie listas com • no início de cada item
+        • Seja técnico e direto
+        • Evite tags HTML complexas
         """
         
         logger.info(f"Enviando prompt para Gemini")
