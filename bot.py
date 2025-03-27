@@ -141,7 +141,7 @@ def buscar_solucao_ia(modelo, problema):
         • Tom amigável e motivador
         • Caso precise mencionar peças, use o formato:
           Possíveis substituições: 
-          <b>Sensor do acelerador</b> - código XXXXX
+          <b>Nome da peça</b> - código da peça
         """
         
         logger.info(f"Enviando prompt para Gemini")
