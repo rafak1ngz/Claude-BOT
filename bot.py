@@ -35,7 +35,14 @@ def configurar_gemini():
         logger.info("Iniciando configuração do Gemini")
         genai.configure(api_key=GOOGLE_API_KEY)
         
-        # Listar modelos disponíveis
+        # Lista de modelos preferenciais em ordem
+        modelos_preferidos = [
+            'models/gemini-1.5-pro-latest',
+            'models/gemini-1.5-flash-latest',
+            'models/gemini-1.5-pro',
+            'models/gemini-1.5-flash'
+        ]
+        
         models = genai.list_models()
         modelos_texto = [
             m.name for m in models 
@@ -47,9 +54,10 @@ def configurar_gemini():
         for m in modelos_texto:
             logger.info(m)
         
-        # Selecionar o primeiro modelo de texto disponível
-        if modelos_texto:
-            modelo_selecionado = modelos_texto[0]
+        # Selecionar modelo prioritário
+        modelo_selecionado = next((m for m in modelos_preferidos if m in modelos_texto), None)
+        
+        if modelo_selecionado:
             logger.info(f"Selecionando modelo: {modelo_selecionado}")
             model = genai.GenerativeModel(modelo_selecionado)
             logger.info("Modelo Gemini configurado com sucesso!")
@@ -85,8 +93,13 @@ def buscar_solucao_ia(modelo, problema):
     Consulta modelo Gemini para encontrar solução técnica
     """
     try:
+        # Verificações preliminares
         if not model:
             raise ValueError("Modelo Gemini não configurado")
+        
+        # Validações de entrada adicionais
+        if not modelo or not problema:
+            raise ValueError("Modelo e código de falha são obrigatórios")
         
         prompt = f"""
         Contexto: Diagnóstico técnico de empilhadeira
@@ -105,14 +118,23 @@ def buscar_solucao_ia(modelo, problema):
         """
         
         logger.info(f"Enviando prompt para Gemini")
-        resposta = model.generate_content(prompt)
-        logger.info("Resposta do Gemini recebida")
         
+        # Timeout para evitar esperas longas
+        try:
+            resposta = model.generate_content(prompt, timeout=30)
+        except Exception as timeout_error:
+            logger.warning(f"Timeout na geração de conteúdo: {timeout_error}")
+            return "Desculpe, a geração de conteúdo excedeu o tempo limite."
+        
+        logger.info("Resposta do Gemini recebida")
         return resposta.text
     
+    except ValueError as ve:
+        logger.error(f"Erro de validação: {ve}")
+        return f"Erro de validação: {ve}"
     except Exception as e:
         logger.error(f"Erro na consulta de IA: {e}", exc_info=True)
-        return f"Desculpe, não foi possível processar a solução técnica. Erro: {str(e)}"
+        return f"Desculpe, não foi possível processar a solução técnica. Entre em contato com suporte técnico."
 
 @bot.message_handler(commands=['start'])
 def mensagem_inicial(message):
