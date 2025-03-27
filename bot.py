@@ -1,6 +1,6 @@
 import os
 import telebot
-from openai import OpenAI
+import google.generativeai as genai
 import pymongo
 from dotenv import load_dotenv
 from datetime import datetime
@@ -12,12 +12,26 @@ load_dotenv()
 
 # Configurações
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 MONGODB_URI = os.getenv('MONGODB_URI')
 
+print(f"Token Telegram: {bool(TELEGRAM_BOT_TOKEN)}")
+print(f"Gemini API Key: {bool(GEMINI_API_KEY)}")
+print(f"MongoDB URI: {bool(MONGODB_URI)}")
+
 # Inicializar serviços
-bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
-client_openai = OpenAI(api_key=OPENAI_API_KEY)
+try:
+    bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
+    print("Bot Telegram inicializado com sucesso!")
+except Exception as e:
+    print(f"Erro ao inicializar bot Telegram: {e}")
+
+try:
+    genai.configure(api_key=GEMINI_API_KEY)
+    model = genai.GenerativeModel('gemini-pro')
+    print("Modelo Gemini configurado com sucesso!")
+except Exception as e:
+    print(f"Erro ao configurar Gemini: {e}")
 
 # Variável global para verificação
 manutencoes_collection = None
@@ -36,7 +50,7 @@ except Exception as e:
 
 def buscar_solucao_ia(modelo, problema):
     """
-    Consulta modelo de IA para encontrar solução
+    Consulta modelo Gemini para encontrar solução
     """
     try:
         prompt = f"""
@@ -50,24 +64,29 @@ def buscar_solucao_ia(modelo, problema):
         - Possíveis causas
         """
         
-        resposta = client_openai.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}]
-        )
-        
-        return resposta.choices[0].message.content
+        print(f"Prompt enviado ao Gemini: {prompt}")
+        resposta = model.generate_content(prompt)
+        print(f"Resposta do Gemini: {resposta.text}")
+        return resposta.text
+    
     except Exception as e:
+        print(f"Erro detalhado na consulta de IA: {e}")
         return f"Erro na consulta de IA: {str(e)}"
 
 @bot.message_handler(commands=['start'])
 def mensagem_inicial(message):
-    bot.reply_to(message, 
-        "Olá! Sou o assistente de suporte técnico para empilhadeiras. " 
-        "Envie o modelo e o problema que enfrentou no formato: Modelo-Problema"
-    )
+    print(f"Comando /start recebido de {message.from_user.username}")
+    try:
+        bot.reply_to(message, 
+            "Olá! Sou o assistente de suporte técnico para empilhadeiras. " 
+            "Envie o modelo e o problema que enfrentou no formato: Modelo-Problema"
+        )
+    except Exception as e:
+        print(f"Erro no tratamento do /start: {e}")
 
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
+    print(f"Mensagem recebida: {message.text}")
     try:
         # Extrair informações
         texto = message.text
@@ -80,6 +99,9 @@ def handle_message(message):
         
         modelo = partes[0].strip()
         problema = partes[1].strip()
+        
+        print(f"Modelo extraído: {modelo}")
+        print(f"Problema extraído: {problema}")
         
         # Buscar solução via IA
         solucao = buscar_solucao_ia(modelo, problema)
@@ -102,9 +124,13 @@ def handle_message(message):
                      "Esta solução resolveu seu problema? (Sim/Não)")
     
     except Exception as e:
+        print(f"Erro detalhado ao processar: {e}")
         bot.reply_to(message, f"Erro ao processar: {str(e)}")
 
 # Configuração para Railway
 if __name__ == '__main__':
     print("Bot iniciado...")
-    bot.polling(none_stop=True)
+    try:
+        bot.polling(none_stop=True, timeout=90)
+    except Exception as e:
+        print(f"Erro fatal no polling: {e}")
