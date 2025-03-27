@@ -35,9 +35,9 @@ MONGODB_URI = os.getenv('MONGODB_URI')
 model = None
 manutencoes_collection = None
 bot_running = threading.Event()
-user_feedback_state = {}
+user_state = {}  # Novo dicionário para rastrear o estado do usuário
 
-# Função de sanitização de HTML melhorada
+# Função de sanitização de HTML (mantida igual ao código original)
 def sanitizar_html(texto):
     try:
         # Remover tags HTML não desejadas
@@ -87,7 +87,7 @@ def sanitizar_html(texto):
         logger.error(f"Erro na sanitização HTML: {e}")
         return "Erro ao processar resposta técnica."
 
-# Configuração do Gemini
+# Funções de configuração (Gemini e MongoDB permanecem iguais)
 def configurar_gemini():
     global model
     try:
@@ -129,7 +129,6 @@ def configurar_gemini():
         logger.error(f"Erro crítico na configuração do Gemini: {e}", exc_info=True)
         return False
 
-# Configuração do MongoDB
 def configurar_mongodb():
     global manutencoes_collection
     try:
@@ -157,21 +156,21 @@ def configurar_mongodb():
 # Inicializar Telegram Bot
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN, parse_mode='HTML')
 
-def buscar_solucao_ia(modelo, problema):
+def buscar_solucao_ia(equipamento, problema):
     try:
         if not model:
             raise ValueError("Modelo Gemini não configurado")
         
         prompt = f"""
         // Informações para guardar
-        Modelo: {modelo}
-        Código de Falha: {problema}
+        Equipamento: {equipamento}
+        Descrição do Problema: {problema}
 
         // Objetivo
         Gere um diagnóstico técnico CURTO e DIRETO em HTML
         
         //Modelo a ser respondido
-        1. Análise do código de falha
+        1. Análise do problema reportado
         2. Possíveis causas da falha
         3. Procedimento de diagnóstico
         4. Passos para reparo ou manutenção
@@ -209,7 +208,7 @@ def buscar_solucao_ia(modelo, problema):
         texto_resposta = sanitizar_html(resposta.text)
         
         # Adicionar emoji para dar mais personalidade
-        texto_formatado = f"🔧 Diagnóstico para {modelo} 🚨\n\n{texto_resposta}"
+        texto_formatado = f"🔧 Diagnóstico para {equipamento} 🚨\n\n{texto_resposta}"
         
         logger.info("Resposta do Gemini recebida")
         return texto_formatado
@@ -240,89 +239,104 @@ def dividir_mensagem(texto, max_length=4000):
 @bot.message_handler(commands=['start'])
 def mensagem_inicial(message):
     logger.info(f"Comando /start recebido de {message.from_user.username}")
-    bot.reply_to(message, 
-        "🚧 Assistente Técnico de Empilhadeiras 🚧\n\n"
-        "Como funciono:\n"
-        "• Envie o modelo da empilhadeira e o código de falha\n"
-        "• Formato: ModeloEmpilhadeira-CódigoFalha\n"
-        "• Exemplo: EGV-02A79\n\n"
-        "Estou pronto para ajudar com diagnósticos técnicos!"
-    )
-
-@bot.message_handler(func=lambda message: message.text.lower() in ['sim', 'não'])
-def handle_feedback(message):
-    user_id = message.from_user.id
     
-    if user_id in user_feedback_state:
-        if message.text.lower() == 'sim':
-            bot.reply_to(message, "<b>🎉 Ótimo! Fico feliz em ter ajudado.</b>")
-        else:
-            bot.reply_to(message, "<b>😔 Lamento não ter resolvido completamente. Posso tentar ajudar novamente.</b>")
-        
-        # Limpar estado de feedback
-        del user_feedback_state[user_id]
-    else:
-        bot.reply_to(message, "❌ Envie primeiro o modelo da empilhadeira.")
+    # Resetar o estado do usuário
+    user_state[message.from_user.id] = {'stage': 'intro'}
+    
+    bot.reply_to(message, 
+        "🚧 Assistente Técnico de Manutenção 🚧\n\n"
+        "Vamos começar: Por favor, informe detalhes do equipamento:\n"
+        "• Marca\n"
+        "• Modelo\n"
+        "• Versão/Ano\n\n"
+        "Exemplo: Transpaleteira elétrica Linde T20 SP - 2022"
+    )
 
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
-    logger.info(f"Mensagem recebida: {message.text}")
+    user_id = message.from_user.id
+    
+    # Se o usuário não tiver estado definido, iniciar do zero
+    if user_id not in user_state:
+        user_state[user_id] = {'stage': 'intro'}
+    
+    current_stage = user_state[user_id].get('stage', 'intro')
     
     try:
-        if not message.text:
-            bot.reply_to(message, "Por favor, envie uma mensagem válida.")
-            return
+        if current_stage == 'intro':
+            # Capturar informações do equipamento
+            equipamento = message.text.strip()
+            
+            # Validar se a mensagem não está vazia
+            if not equipamento:
+                bot.reply_to(message, "❌ Por favor, informe os detalhes do equipamento.")
+                return
+            
+            # Salvar informações do equipamento e mudar para próximo estágio
+            user_state[user_id] = {
+                'stage': 'problem_description',
+                'equipamento': equipamento
+            }
+            
+            # Solicitar descrição do problema
+            bot.reply_to(message, 
+                f"✅ Equipamento registrado: <b>{equipamento}</b>\n\n"
+                "Agora, descreva detalhadamente o problema que você está enfrentando. "
+                "Seja o mais específico possível sobre os sintomas, comportamentos incomuns, "
+                "sons, ou qualquer outra observação relevante."
+            )
         
-        # Ignorar mensagens de feedback se não seguirem o formato
-        if message.text.lower() in ['sim', 'não']:
-            bot.reply_to(message, "❌ Primeiro informe o modelo da empilhadeira.")
-            return
-        
-        partes = message.text.split('-')
-        if len(partes) < 2:
-            bot.reply_to(message, "❌ Formato inválido. Use: Modelo-CódigoFalha")
-            return
-        
-        modelo = partes[0].strip()
-        problema = partes[1].strip()
-        
-        solucao = buscar_solucao_ia(modelo, problema)
-        
-        # Dividir mensagem longa em partes
-        mensagens = dividir_mensagem(solucao)
-        
-        # Enviar primeira mensagem
-        primeira_mensagem = f"🔧 Diagnóstico para {modelo} - Código {problema}:\n\n{mensagens[0]}"
-        bot.reply_to(message, primeira_mensagem)
-        
-        # Enviar mensagens subsequentes
-        for msg_adicional in mensagens[1:]:
-            bot.send_message(message.chat.id, msg_adicional)
-        
-        if manutencoes_collection is not None:
-            try:
-                registro = {
-                    'modelo': modelo,
-                    'problema': problema,
-                    'solucao': solucao,
-                    'data': datetime.now()
-                }
-                manutencoes_collection.insert_one(registro)
-                logger.info("Registro salvo no MongoDB")
-            except Exception as db_error:
-                logger.error(f"Erro ao salvar no banco de dados: {db_error}")
-        
-        # Registrar estado de feedback para este usuário
-        user_feedback_state[message.from_user.id] = True
-        
-        # Mensagem final de feedback
-        bot.send_message(message.chat.id, 
-            "<b>Estas informações ajudaram a resolver seu problema?</b> Responda com <i>Sim</i> ou <i>Não</i>")
+        elif current_stage == 'problem_description':
+            # Capturar descrição do problema
+            problema = message.text.strip()
+            
+            # Validar se a descrição não está vazia
+            if not problema:
+                bot.reply_to(message, "❌ Por favor, descreva o problema em detalhes.")
+                return
+            
+            # Buscar solução via IA
+            equipamento = user_state[user_id]['equipamento']
+            solucao = buscar_solucao_ia(equipamento, problema)
+            
+            # Dividir mensagem longa em partes
+            mensagens = dividir_mensagem(solucao)
+            
+            # Enviar primeira mensagem
+            primeira_mensagem = f"🔧 Diagnóstico para {equipamento}:\n\n{mensagens[0]}"
+            bot.reply_to(message, primeira_mensagem)
+            
+            # Enviar mensagens subsequentes
+            for msg_adicional in mensagens[1:]:
+                bot.send_message(message.chat.id, msg_adicional)
+            
+            # Salvar no banco de dados (opcional)
+            if manutencoes_collection is not None:
+                try:
+                    registro = {
+                        'equipamento': equipamento,
+                        'problema': problema,
+                        'solucao': solucao,
+                        'data': datetime.now()
+                    }
+                    manutencoes_collection.insert_one(registro)
+                    logger.info("Registro salvo no MongoDB")
+                except Exception as db_error:
+                    logger.error(f"Erro ao salvar no banco de dados: {db_error}")
+            
+            # Resetar estado para permitir novo diagnóstico
+            user_state[user_id] = {'stage': 'intro'}
+            
+            # Mensagem final
+            bot.send_message(message.chat.id, 
+                "Posso ajudar em mais alguma coisa? "
+                "Use /start para iniciar um novo diagnóstico.")
     
     except Exception as e:
         logger.error(f"Erro detalhado ao processar: {e}", exc_info=True)
         bot.reply_to(message, f"Desculpe, ocorreu um erro: {str(e)}")
 
+# Funções start_bot() e main() permanecem iguais ao código original
 def start_bot():
     tentativas = 0
     max_tentativas = 5
