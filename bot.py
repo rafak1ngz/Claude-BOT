@@ -163,24 +163,28 @@ def buscar_solucao_ia(modelo, problema):
             raise ValueError("Modelo Gemini não configurado")
         
         prompt = f"""
-        Contexto: Diagnóstico técnico de empilhadeira
+        // Informações para guardar
         Modelo: {modelo}
         Código de Falha: {problema}
 
-        Gere um diagnóstico técnico CURTO e DIRETO em HTML:
+        // Objetivo
+        Gere um diagnóstico técnico CURTO e DIRETO em HTML
+        
+        //Modelo a ser respondido
         1. Análise do código de falha {problema}
         2. Possíveis causas da falha
         3. Procedimento de diagnóstico
         4. Passos para reparo ou manutenção
         5. Peças potencialmente envolvidas com seus códigos
 
-        Instruções de formatação HTML:
+        // Regras de formatação HTML
         • Use <b>negrito</b> para títulos
         • Use <i>itálico</i> para ênfases
         • Utilize <br> para quebras de linha
         • Crie listas com • no início de cada item
         • Seja técnico e direto
-        • Evite tags HTML complexas
+        • Não use tags HTML complexas ou DOCTYPE
+        • Use apenas as listadas aqui
         """
         
         logger.info(f"Enviando prompt para Gemini")
