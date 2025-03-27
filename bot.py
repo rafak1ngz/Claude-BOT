@@ -35,15 +35,26 @@ def configurar_gemini():
         
         # Listar modelos disponíveis
         models = genai.list_models()
-        logger.info("Modelos encontrados:")
-        for m in models:
-            if 'generateContent' in m.supported_generation_methods:
-                logger.info(f"Modelo disponível: {m.name}")
+        modelos_texto = [
+            m.name for m in models 
+            if 'generateContent' in m.supported_generation_methods 
+            and ('pro' in m.name.lower() or 'flash' in m.name.lower())
+        ]
         
-        # Selecionar modelo
-        model = genai.GenerativeModel('gemini-pro')
-        logger.info("Modelo Gemini configurado com sucesso!")
-        return True
+        logger.info("Modelos de texto disponíveis:")
+        for m in modelos_texto:
+            logger.info(m)
+        
+        # Selecionar o primeiro modelo de texto disponível
+        if modelos_texto:
+            modelo_selecionado = modelos_texto[0]
+            logger.info(f"Selecionando modelo: {modelo_selecionado}")
+            model = genai.GenerativeModel(modelo_selecionado)
+            logger.info("Modelo Gemini configurado com sucesso!")
+            return True
+        else:
+            logger.error("Nenhum modelo de texto encontrado")
+            return False
     except Exception as e:
         logger.error(f"Erro na configuração do Gemini: {e}", exc_info=True)
         return False
@@ -76,18 +87,22 @@ def buscar_solucao_ia(modelo, problema):
             raise ValueError("Modelo Gemini não configurado")
         
         prompt = f"""
-        Contexto: Suporte técnico de empilhadeira
-        Modelo da Empilhadeira: {modelo}
-        Problema Relatado: {problema}
-        
-        Forneça de forma clara e técnica:
-        - Diagnóstico preliminar
-        - Código da peça (se aplicável)
-        - Procedimento de reparo
-        - Possíveis causas do problema
+        Contexto: Diagnóstico técnico de empilhadeira
+        Modelo: {modelo}
+        Código de Falha: {problema}
+
+        Forneça um diagnóstico técnico detalhado:
+        1. Análise do código de falha {problema}
+        2. Possíveis causas da falha
+        3. Procedimento de diagnóstico
+        4. Passos para reparo ou manutenção
+        5. Peças potencialmente envolvidas
+        6. Recomendações de manutenção preventiva
+
+        Apresente a resposta de forma técnica e clara, com linguagem de manual de manutenção.
         """
         
-        logger.info(f"Enviando prompt para Gemini: {prompt}")
+        logger.info(f"Enviando prompt para Gemini")
         resposta = model.generate_content(prompt)
         logger.info("Resposta do Gemini recebida")
         
@@ -95,16 +110,19 @@ def buscar_solucao_ia(modelo, problema):
     
     except Exception as e:
         logger.error(f"Erro na consulta de IA: {e}", exc_info=True)
-        return f"Desculpe, não foi possível processar a solução. Erro: {str(e)}"
+        return f"Desculpe, não foi possível processar a solução técnica. Erro: {str(e)}"
 
 @bot.message_handler(commands=['start'])
 def mensagem_inicial(message):
     logger.info(f"Comando /start recebido de {message.from_user.username}")
     try:
         bot.reply_to(message, 
-            "🚧 Assistente de Suporte Técnico de Empilhadeiras 🚧\n\n"
-            "Envie o problema no formato: ModeloDaEmpilhadeira-DescriçãoProblema\n"
-            "Exemplo: Hyster-RuidoNaTransmissão"
+            "🚧 Assistente Técnico de Empilhadeiras 🚧\n\n"
+            "Como funciono:\n"
+            "• Envie o modelo da empilhadeira e o código de falha\n"
+            "• Formato: ModeloEmpilhadeira-CódigoFalha\n"
+            "• Exemplo: EGV-02A79\n\n"
+            "Estou pronto para ajudar com diagnósticos técnicos!"
         )
     except Exception as e:
         logger.error(f"Erro no tratamento do /start: {e}", exc_info=True)
@@ -122,14 +140,14 @@ def handle_message(message):
         # Extrair informações
         partes = message.text.split('-')
         if len(partes) < 2:
-            bot.reply_to(message, "❌ Formato inválido. Use: Modelo-Problema")
+            bot.reply_to(message, "❌ Formato inválido. Use: Modelo-CódigoFalha")
             return
         
         modelo = partes[0].strip()
         problema = partes[1].strip()
         
         logger.info(f"Modelo extraído: {modelo}")
-        logger.info(f"Problema extraído: {problema}")
+        logger.info(f"Código de Falha: {problema}")
         
         # Buscar solução via IA
         solucao = buscar_solucao_ia(modelo, problema)
@@ -150,8 +168,8 @@ def handle_message(message):
         
         # Responder ao usuário
         bot.reply_to(message, 
-            f"🔧 Solução para {modelo}:\n\n{solucao}\n\n"
-            "Esta solução ajudou a resolver seu problema? (Sim/Não)")
+            f"🔧 Diagnóstico para {modelo} - Código {problema}:\n\n{solucao}\n\n"
+            "Estas informações ajudaram a resolver seu problema? (Sim/Não)")
     
     except Exception as e:
         logger.error(f"Erro detalhado ao processar: {e}", exc_info=True)
@@ -169,7 +187,9 @@ def main():
     logger.info("Inicializando bot de suporte técnico...")
     
     try:
-        bot.polling(none_stop=True, timeout=90)
+        # Remover webhook e iniciar polling
+        bot.remove_webhook()
+        bot.polling(none_stop=True, timeout=90, long_polling_timeout=90)
     except Exception as e:
         logger.critical(f"Erro fatal no polling: {e}", exc_info=True)
 
