@@ -12,7 +12,7 @@ load_dotenv()
 
 # Configurações
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')  # Mudança aqui
+GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
 MONGODB_URI = os.getenv('MONGODB_URI')
 
 # Inicializar serviços
@@ -20,11 +20,43 @@ bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
 # Configuração do Gemini
 try:
-    genai.configure(api_key=GOOGLE_API_KEY)  # Usando GOOGLE_API_KEY
-    model = genai.GenerativeModel('gemini-pro')
+    genai.configure(api_key=GOOGLE_API_KEY)
+    
+    # Listar modelos disponíveis
+    for m in genai.list_models():
+        if 'generateContent' in m.supported_generation_methods:
+            print(m.name)
+    
+    # Usar o modelo disponível
+    model = genai.GenerativeModel('gemini-1.0-pro')  # Alterado para esta versão
     print("Modelo Gemini configurado com sucesso!")
 except Exception as e:
     print(f"Erro ao configurar Gemini: {e}")
+
+def buscar_solucao_ia(modelo, problema):
+    """
+    Consulta modelo Gemini para encontrar solução
+    """
+    try:
+        prompt = f"""
+        Contexto: Suporte técnico de empilhadeira
+        Modelo: {modelo}
+        Problema: {problema}
+        
+        Forneça:
+        - Código da peça (se aplicável)
+        - Procedimento de reparo
+        - Possíveis causas
+        """
+        
+        print(f"Prompt enviado ao Gemini: {prompt}")
+        resposta = model.generate_content(prompt)
+        print(f"Resposta do Gemini: {resposta.text}")
+        return resposta.text
+    
+    except Exception as e:
+        print(f"Erro detalhado na consulta de IA: {e}")
+        return f"Erro na consulta de IA: {str(e)}"
 
 # Variável global para verificação
 manutencoes_collection = None
