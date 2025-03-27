@@ -134,15 +134,17 @@ def buscar_solucao_ia(modelo, problema):
         Código de Falha: {problema}
 
         Forneça um diagnóstico técnico CURTO e DIRETO em texto simples com formatação HTML limitada:
+        1. Análise do código de falha {problema}
+        2. Possíveis causas da falha
+        3. Procedimento de diagnóstico
+        4. Passos para reparo ou manutenção
+        5. Peças potencialmente envolvidas com seus devidos códigos
         • Use apenas <b> para negrito
         • Use apenas <i> para itálico 
         • Use tags completas e corretamente fechadas
         • Evite tags HTML complexas ou aninhadas
         • Tom amigável e motivador
-        • Caso precise mencionar peças, use o formato:
-          Possíveis substituições: 
-          <b>Nome da peça</b> - código da peça
-        
+
         Observação: essa mensgem está sendo visualizada por um técnico profissional do segmento, então não precisa se limitar em informações mais técnicas.
         """
         
