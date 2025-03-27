@@ -1,5 +1,7 @@
 import os
 import logging
+import time
+import threading
 import telebot
 import google.generativeai as genai
 from pymongo import MongoClient
@@ -175,6 +177,19 @@ def handle_message(message):
         logger.error(f"Erro detalhado ao processar: {e}", exc_info=True)
         bot.reply_to(message, f"Desculpe, ocorreu um erro: {str(e)}")
 
+def start_bot():
+    """
+    Função para iniciar o bot com tratamento de exceções e reconexão
+    """
+    while True:
+        try:
+            logger.info("Iniciando polling do Telegram Bot")
+            bot.remove_webhook()
+            bot.polling(none_stop=True, timeout=90, long_polling_timeout=90)
+        except Exception as e:
+            logger.critical(f"Erro no polling do bot: {e}", exc_info=True)
+            time.sleep(10)  # Aguarda 10 segundos antes de tentar novamente
+
 def main():
     # Configurações iniciais
     gemini_ok = configurar_gemini()
@@ -186,12 +201,12 @@ def main():
     
     logger.info("Inicializando bot de suporte técnico...")
     
-    try:
-        # Remover webhook e iniciar polling
-        bot.remove_webhook()
-        bot.polling(none_stop=True, timeout=90, long_polling_timeout=90)
-    except Exception as e:
-        logger.critical(f"Erro fatal no polling: {e}", exc_info=True)
+    # Inicia o bot em uma thread separada
+    bot_thread = threading.Thread(target=start_bot)
+    bot_thread.start()
+
+    # Manter o programa principal rodando
+    bot_thread.join()
 
 if __name__ == '__main__':
     main()

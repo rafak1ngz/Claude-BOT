@@ -1,4 +1,4 @@
-telebot
+telebot>=20.0.0
 python-dotenv
 pymongo
 google-generativeai>=0.3.2
