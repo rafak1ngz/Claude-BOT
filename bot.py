@@ -24,29 +24,32 @@ def buscar_solucao_ia(modelo, problema):
     """
     Consulta modelo de IA para encontrar solução
     """
-    prompt = f"""
-    Contexto: Suporte técnico de empilhadeira
-    Modelo: {modelo}
-    Problema: {problema}
-    
-    Forneça:
-    - Código da peça (se aplicável)
-    - Procedimento de reparo
-    - Possíveis causas
-    """
-    
-    resposta = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "system", "content": prompt}]
-    )
-    
-    return resposta.choices[0].message.content
+    try:
+        prompt = f"""
+        Contexto: Suporte técnico de empilhadeira
+        Modelo: {modelo}
+        Problema: {problema}
+        
+        Forneça:
+        - Código da peça (se aplicável)
+        - Procedimento de reparo
+        - Possíveis causas
+        """
+        
+        resposta = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}]
+        )
+        
+        return resposta.choices[0].message.content
+    except Exception as e:
+        return f"Erro na consulta de IA: {str(e)}"
 
 @bot.message_handler(commands=['start'])
 def mensagem_inicial(message):
     bot.reply_to(message, 
         "Olá! Sou o assistente de suporte técnico para empilhadeiras. " 
-        "Envie o modelo e o problema que enfrentou."
+        "Envie o modelo e o problema que enfrentou no formato: Modelo-Problema"
     )
 
 @bot.message_handler(func=lambda message: True)
@@ -85,15 +88,5 @@ def handle_message(message):
 
 # Configuração para Railway
 if __name__ == '__main__':
-    bot.polling()
-
-# Adicione este código ao final do seu bot.py
-import requests
-
-# URL do seu bot no Railway
-RAILWAY_URL = 'https://seu-projeto.railway.app'
-BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-
-# Configurar webhook
-webhook_url = f'{RAILWAY_URL}/{BOT_TOKEN}'
-requests.get(f'https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={webhook_url}')
+    print("Bot iniciado...")
+    bot.polling(none_stop=True)
