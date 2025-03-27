@@ -133,16 +133,21 @@ def buscar_solucao_ia(modelo, problema):
         Modelo: {modelo}
         Código de Falha: {problema}
 
-        Forneça um diagnóstico técnico CURTO e DIRETO em texto simples com formatação HTML limitada:
+        Forneça um diagnóstico técnico CURTO e DIRETO:
         1. Análise do código de falha {problema}
         2. Possíveis causas da falha
         3. Procedimento de diagnóstico
         4. Passos para reparo ou manutenção
         5. Peças potencialmente envolvidas com seus devidos códigos
+
+        Instruções para códigos HTML:
+        • texto simples com formatação HTML limitada, será utilizado no telegram
         • Use apenas <b> para negrito
         • Use apenas <i> para itálico 
-        • Use tags completas e corretamente fechadas
-        • Evite tags HTML complexas ou aninhadas
+        • Use apenas <u> para sublinhado 
+        • Use apenas <br> para pulhar linhas
+        • Use tags corretamente fechadas
+        • Não utilize outras tags HTML além destas informadas
         • Tom amigável e motivador
 
         Observação: essa mensgem está sendo visualizada por um técnico profissional do segmento, então não precisa se limitar em informações mais técnicas.
