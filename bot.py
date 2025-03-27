@@ -1,6 +1,6 @@
 import os
 import telebot
-import openai
+from openai import OpenAI
 import pymongo
 from dotenv import load_dotenv
 from datetime import datetime
@@ -17,7 +17,7 @@ MONGODB_URI = os.getenv('MONGODB_URI')
 
 # Inicializar serviços
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
-openai.api_key = OPENAI_API_KEY
+client_openai = OpenAI(api_key=OPENAI_API_KEY)
 
 # Variável global para verificação
 manutencoes_collection = None
@@ -50,7 +50,7 @@ def buscar_solucao_ia(modelo, problema):
         - Possíveis causas
         """
         
-        resposta = openai.ChatCompletion.create(
+        resposta = client_openai.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}]
         )

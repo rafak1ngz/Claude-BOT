@@ -1,6 +1,6 @@
 flask
 pyTelegramBotAPI
 python-dotenv
-openai
+openai>=1.0.0
 pymongo
 requests
