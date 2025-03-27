@@ -119,10 +119,14 @@ def buscar_solucao_ia(modelo, problema):
         • Solução rápida
         • 3-4 passos práticos de reparo
         • Tom amigável e motivador
-        • Responta com formatação para Telegram
         • Caso alguma peça possa ser necessário a troca, informe no final da seguinte maneira:
-        [• Possíveis substituições de peças: 
-         - Descrição - código (exemplo: Sensor do acelerador - código XXXXX)]
+        • Possíveis substituições de peças: 
+         - Descrição - código (exemplo: Sensor do acelerador - código XXXXX)
+        • Responta com formatação para Telegram:
+        - Texto em itálico, basta colocar dois traços (__) antes e dois depois da palavra ou frase
+        - Palavras em negrito, adicione dois asteriscos (**) no começo e dois no fim
+        - Texto com uma linha no meio dele, é só inserir dois tios (~~) no começo e dois no fim
+        - Texto fique com um espaço entre uma letra e outra, é só colocar três crases no começo (```) e três no final das palavras ou frases.
         """
         
         logger.info(f"Enviando prompt para Gemini")
