@@ -86,3 +86,14 @@ def handle_message(message):
 # Configuração para Railway
 if __name__ == '__main__':
     bot.polling()
+
+# Adicione este código ao final do seu bot.py
+import requests
+
+# URL do seu bot no Railway
+RAILWAY_URL = 'https://seu-projeto.railway.app'
+BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+
+# Configurar webhook
+webhook_url = f'{RAILWAY_URL}/{BOT_TOKEN}'
+requests.get(f'https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={webhook_url}')
