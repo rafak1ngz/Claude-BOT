@@ -114,13 +114,12 @@ def buscar_solucao_ia(modelo, problema):
         Modelo: {modelo}
         Código de Falha: {problema}
 
-        Forneça um diagnóstico técnico detalhado:
-        1. Análise do código de falha {problema}
-        2. Possíveis causas da falha
-        3. Procedimento de diagnóstico
-        4. Passos para reparo ou manutenção
-        5. Peças potencialmente envolvidas
-        6. Recomendações de manutenção preventiva
+        Forneça um diagnóstico técnico CURTO e DIRETO:
+        • Cause mais provável da falha
+        • Solução rápida
+        • 2-3 passos práticos de reparo
+        • Tom amigável e motivador
+        • Use emojis para tornar mais interessante
         """
         
         logger.info(f"Enviando prompt para Gemini")
