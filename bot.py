@@ -78,7 +78,7 @@ def configurar_mongodb():
         return False
 
 # Inicializar Telegram Bot
-bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
+bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN, parse_mode=None)
 
 def buscar_solucao_ia(modelo, problema):
     """

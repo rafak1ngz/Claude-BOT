@@ -1,5 +1,5 @@
-telebot>=20.0.0
-python-dotenv
-pymongo
-google-generativeai>=0.3.2
-dnspython  # Resolve problemas de conexão do MongoDB
+pyTelegramBotAPI==20.3.0
+python-dotenv==1.0.0
+pymongo==4.6.1
+google-generativeai==0.3.2
+dnspython==2.6.1
