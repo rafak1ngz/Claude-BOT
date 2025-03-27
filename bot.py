@@ -33,6 +33,7 @@ MONGODB_URI = os.getenv('MONGODB_URI')
 model = None
 manutencoes_collection = None
 bot_running = threading.Event()
+user_feedback_state = {}
 
 # Configuração do Gemini
 def configurar_gemini():
@@ -102,7 +103,7 @@ def configurar_mongodb():
         return False
 
 # Inicializar Telegram Bot
-bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN, parse_mode=None)
+bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN, parse_mode='HTML')
 
 def buscar_solucao_ia(modelo, problema):
     try:
@@ -114,23 +115,21 @@ def buscar_solucao_ia(modelo, problema):
         Modelo: {modelo}
         Código de Falha: {problema}
 
-        Forneça um diagnóstico técnico CURTO e DIRETO:
+        Forneça um diagnóstico técnico CURTO e DIRETO em formato HTML:
         • Causa mais provável da falha
         • Solução rápida
         • 3-4 passos práticos de reparo
         • Tom amigável e motivador
-        • Caso alguma peça possa ser necessário a troca, informe no final da seguinte maneira:
-        • Possíveis substituições de peças: 
-         - Descrição - código (exemplo: Sensor do acelerador - código XXXXX)
-        • Responta com formatação para Telegram:
-        - Texto em itálico, basta colocar dois traços (__) antes e dois depois da palavra ou frase
-        - Palavras em negrito, adicione dois asteriscos (**) no começo e dois no fim
-        - Texto com uma linha no meio dele, é só inserir dois tios (~~) no começo e dois no fim
-        - Texto fique com um espaço entre uma letra e outra, é só colocar três crases no começo (```) e três no final das palavras ou frases.
+        • Use tags HTML para formatação:
+          - <b>Negrito</b>
+          - <i>Itálico</i>
+          - <u>Sublinhado</u>
+        • Caso precise mencionar peças, use o formato:
+          Possíveis substituições: 
+          <b>Sensor do acelerador</b> - código XXXXX
         """
         
         logger.info(f"Enviando prompt para Gemini")
-        # Adiciona parâmetros de segurança
         safety_settings = [
             {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
             {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
@@ -148,12 +147,15 @@ def buscar_solucao_ia(modelo, problema):
             }
         )
         
+        # Adicionar emoji para dar mais personalidade
+        texto_formatado = f"🔧 Diagnóstico para {modelo} 🚨\n\n{resposta.text}"
+        
         logger.info("Resposta do Gemini recebida")
-        return resposta.text
+        return texto_formatado
     
     except Exception as e:
         logger.error(f"Erro na consulta de IA: {e}", exc_info=True)
-        return f"Desculpe, não foi possível processar a solução técnica. Erro: {str(e)}"
+        return f"🚫 Ops! Não consegui processar o diagnóstico. Erro: {str(e)} 😓"
 
 @bot.message_handler(commands=['start'])
 def mensagem_inicial(message):
@@ -167,6 +169,21 @@ def mensagem_inicial(message):
         "Estou pronto para ajudar com diagnósticos técnicos!"
     )
 
+@bot.message_handler(func=lambda message: message.text.lower() in ['sim', 'não'])
+def handle_feedback(message):
+    user_id = message.from_user.id
+    
+    if user_id in user_feedback_state:
+        if message.text.lower() == 'sim':
+            bot.reply_to(message, "<b>🎉 Ótimo! Fico feliz em ter ajudado.</b>")
+        else:
+            bot.reply_to(message, "<b>😔 Lamento não ter resolvido completamente. Posso tentar ajudar novamente.</b>")
+        
+        # Limpar estado de feedback
+        del user_feedback_state[user_id]
+    else:
+        bot.reply_to(message, "❌ Envie primeiro o modelo da empilhadeira.")
+
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
     logger.info(f"Mensagem recebida: {message.text}")
@@ -174,6 +191,11 @@ def handle_message(message):
     try:
         if not message.text:
             bot.reply_to(message, "Por favor, envie uma mensagem válida.")
+            return
+        
+        # Ignorar mensagens de feedback se não seguirem o formato
+        if message.text.lower() in ['sim', 'não']:
+            bot.reply_to(message, "❌ Primeiro informe o modelo da empilhadeira.")
             return
         
         partes = message.text.split('-')
@@ -226,9 +248,12 @@ def handle_message(message):
             except Exception as db_error:
                 logger.error(f"Erro ao salvar no banco de dados: {db_error}")
         
+        # Registrar estado de feedback para este usuário
+        user_feedback_state[message.from_user.id] = True
+        
         # Mensagem final de feedback
         bot.send_message(message.chat.id, 
-            "Estas informações ajudaram a resolver seu problema? (Sim/Não)")
+            "<b>Estas informações ajudaram a resolver seu problema?</b> Responda com <i>Sim</i> ou <i>Não</i>")
     
     except Exception as e:
         logger.error(f"Erro detalhado ao processar: {e}", exc_info=True)
