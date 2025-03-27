@@ -3,6 +3,7 @@ import telebot
 import openai
 import pymongo
 from dotenv import load_dotenv
+from datetime import datetime
 
 # Carregar variáveis de ambiente
 load_dotenv()
