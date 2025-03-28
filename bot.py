@@ -226,7 +226,10 @@ def configurar_firestore():
             credentials = service_account.Credentials.from_service_account_info(creds_dict)
             
             # Inicializar Firestore com credenciais
-            db = firestore.Client(credentials=credentials)
+            db = firestore.Client(
+                project=os.getenv('GOOGLE_PROJECT_ID'), 
+                credentials=credentials
+            )
             
             logger.info("Conexão com Firestore estabelecida com sucesso!")
             return db
