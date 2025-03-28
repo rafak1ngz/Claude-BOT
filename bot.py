@@ -39,60 +39,71 @@ user_state = {}  # Dicionário para rastrear o estado do usuário
 
 def sanitizar_html(texto):
     try:
-        # Remover espaços em branco excessivos
-        texto = re.sub(r'\n{3,}', '\n\n', texto)
+        # Remover marcações redundantes
+        texto = texto.replace('**', '')
         
         # Dividir o texto em seções
-        secoes = texto.split('**')
-        secoes = secoes[1:] if len(secoes) > 1 else secoes
-        
+        linhas = texto.split('\n')
         texto_formatado = []
         
-        for secao in secoes:
-            secao = secao.strip()
-            
-            # Formatação de títulos principais
-            if re.match(r'^Diagnóstico', secao):
-                texto_formatado.append(f'<b>{secao}</b>\n')
-            
-            # Formatação de títulos numerados
-            elif re.match(r'^\d+\.', secao):
-                # Formatando títulos numerados em negrito
-                titulo_match = re.match(r'^(\d+\. [^:\n]+)', secao)
-                if titulo_match:
-                    titulo = titulo_match.group(1)
-                    conteudo = secao[len(titulo):].strip()
-                    texto_formatado.append(f'<b>{titulo}</b>\n{conteudo}\n')
-            
-            # Processamento de listas com *
-            elif '*' in secao:
-                linhas = [linha.strip() for linha in secao.split('\n') if linha.strip()]
-                linhas_formatadas = []
-                for linha in linhas:
-                    if linha.startswith('*'):
-                        linha_limpa = linha.replace('*', '').strip()
-                        linhas_formatadas.append(f'• {linha_limpa}')
-                    else:
-                        linhas_formatadas.append(linha)
-                texto_formatado.append('\n'.join(linhas_formatadas) + '\n')
-            
-            # Outras seções
-            else:
-                texto_formatado.append(f'{secao}\n')
+        # Flags de controle
+        em_lista = False
+        em_procedimento = False
         
-        # Juntar todas as seções
+        for linha in linhas:
+            linha = linha.strip()
+            
+            # Pular linhas vazias
+            if not linha:
+                continue
+            
+            # Títulos principais e seções
+            if linha.startswith('Diagnóstico'):
+                texto_formatado.append(f'<b>🔧 {linha}</b>\n')
+            
+            elif linha == 'Problema:':
+                texto_formatado.append(f'<b>❗ {linha}</b>\n')
+            
+            elif linha == 'Análise Técnica Detalhada:':
+                texto_formatado.append(f'<b>📋 {linha}</b>\n')
+            
+            elif linha == 'Possíveis Causas Específicas para a Crown PR 4500:':
+                texto_formatado.append(f'<b>🔍 Possíveis Causas</b>\n')
+                em_lista = True
+            
+            elif linha == 'Procedimento de Diagnóstico Personalizado:':
+                texto_formatado.append(f'\n<b>🛠️ Procedimento de Diagnóstico</b>\n')
+                em_procedimento = True
+            
+            # Processamento de listas
+            elif em_lista and linha.startswith('*'):
+                linha_limpa = linha.replace('*', '• ').strip()
+                texto_formatado.append(linha_limpa)
+            
+            # Processamento de procedimentos numerados
+            elif em_procedimento and re.match(r'^\d+\.', linha):
+                texto_formatado.append(f'<b>{linha}</b>')
+                em_procedimento = False
+            
+            # Conteúdo normal
+            else:
+                # Resetar flags se necessário
+                if em_lista and not linha.startswith('•'):
+                    em_lista = False
+                
+                texto_formatado.append(linha)
+        
+        # Juntar o texto formatado
         texto_final = '\n'.join(texto_formatado)
         
-        # Escapar caracteres especiais
+        # Tratamento HTML
         texto_final = html.escape(texto_final, quote=False)
-        
-        # Restaurar tags HTML básicas
         tags_permitidas = ['b', 'i', 'u', 'code', 'pre']
         for tag in tags_permitidas:
             texto_final = texto_final.replace(f'&lt;{tag}&gt;', f'<{tag}>')
             texto_final = texto_final.replace(f'&lt;/{tag}&gt;', f'</{tag}>')
         
-        # Remover linhas em branco consecutivas
+        # Remover espaços em branco excessivos
         texto_final = re.sub(r'\n{3,}', '\n\n', texto_final)
         
         return texto_final
@@ -100,6 +111,7 @@ def sanitizar_html(texto):
     except Exception as e:
         logger.error(f"Erro na sanitização HTML: {e}")
         return "Erro ao processar resposta técnica."
+
 
 def dividir_mensagem(texto, max_length=4000):
     paragrafos = texto.split('\n')
