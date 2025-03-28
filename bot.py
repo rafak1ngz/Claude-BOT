@@ -67,12 +67,12 @@ def sanitizar_html(texto):
             # Processamento de listas
             if linha.startswith(('*', '-', '•')):
                 linha_limpa = linha.lstrip('*-•').strip()
-                paragrafo_atual.append(f'➡️ {linha_limpa}')
+                paragrafo_atual.append(f'🔹 {linha_limpa}')
                 em_lista = True
             
             # Processamento de procedimentos numerados
             elif re.match(r'^\d+\.', linha):
-                paragrafo_atual.append(f'<b>{linha}</b>')
+                paragrafo_atual.append(f'{linha}')
                 em_procedimento = True
             
             # Conteúdo normal
@@ -326,19 +326,17 @@ IMPORTANTE:
 
 🔧 DIAGNÓSTICO TÉCNICO
 
-EQUIPAMENTO: [modelo]
-
-❗ PROBLEMA IDENTIFICADO
+❗ <b>PROBLEMA IDENTIFICADO</b>
 Descrição técnica do problema...
 
-📋 ANÁLISE TÉCNICA APROFUNDADA
+📋 <b>ANÁLISE TÉCNICA APROFUNDADA</b>
 Detalhamento técnico...
 
-🔍 CAUSAS PROVÁVEIS
+🔍 <b>CAUSAS PROVÁVEIS</b>
 🔹 Causa técnica específica
 🔹 Outra possível causa... (citar no mínimo 3)
 
-🛠️ PROCEDIMENTO DIAGNÓSTICO
+🛠️ <b>PROCEDIMENTO DIAGNÓSTICO</b>
 1. Primeiro passo de diagnóstico
 2. Segundo passo... (citar no mínimo 3)
 
