@@ -202,6 +202,7 @@ def configurar_gemini():
                 logger.warning(f"Falha ao configurar {nome_modelo}: {e}")
         
         if modelo_funcionando:
+            logger.info(f"Modelo final configurado: {modelo_funcionando}")
             return True
         else:
             logger.error("Nenhum modelo de texto encontrado ou funcional")
@@ -272,39 +273,28 @@ def buscar_solucoes_anteriores(equipamento):
 # Buscar solução via IA
 def buscar_solucao_ia(equipamento, problema):
     try:
+        logger.info(f"Buscando solução para: {equipamento}")
+        logger.info(f"Detalhes do problema: {problema}")
         if not model:
             raise ValueError("Modelo Gemini não configurado")
         
         prompt = f"""
-        // Informações para diagnóstico único
-        Foque EXCLUSIVAMENTE nesta situação específica:
+        Diagnóstico Técnico Específico
+
         Equipamento: {equipamento}
-        Descrição do Problema: {problema}
+        Descrição Detalhada do Problema: {problema}
 
-        // Objetivo
-        Gere um diagnóstico técnico CURTO e DIRETO em HTML
-        
-        //Modelo a ser respondido
-        1. Análise do problema reportado
-        2. Possíveis causas da falha
-        3. Procedimento de diagnóstico
-        4. Passos para reparo ou manutenção
-        5. Peças potencialmente envolvidas //(informar com código do fabricante)
+        Forneça um diagnóstico técnico EXCLUSIVAMENTE para este equipamento específico, considerando suas características e o problema relatado.
 
-        // Regras importantes:
-        • IGNORE qualquer contexto ou problema anterior
-        • Concentre-se APENAS no problema atual descrito
-        • Responda considerando SOMENTE as informações atuais
-        
-        // Regras de formatação HTML
-        • Use <b>negrito</b> para títulos
-        • Use <i>itálico</i> para ênfases
-        • Utilize <br> para quebras de linha
-        • Crie listas com • no início de cada item
-        • Seja técnico e direto
-        • NÃO inclua cabeçalhos ou títulos repetidos
+        Estrutura da Resposta:
+        1. Análise do problema reportado para {equipamento}
+        2. Causas específicas para este modelo
+        3. Procedimento de diagnóstico personalizado
+        4. Passos de reparo direcionados
+        5. Peças potencialmente envolvidas
         """
-        
+        logger.info(f"Modelo usado: {model._model_name}")
+        logger.info(f"Tamanho do prompt: {len(prompt)} caracteres")
         logger.info(f"Enviando prompt para Gemini")
         safety_settings = [
             {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
@@ -315,14 +305,20 @@ def buscar_solucao_ia(equipamento, problema):
         
         resposta = model.generate_content(
             prompt, 
-            safety_settings=safety_settings,
+            safety_settings=[
+                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
+            ],
             generation_config={
                 "max_output_tokens": 2048,
-                "temperature": 0.5,
-                "top_p": 1
+                "temperature": 0.7,  # Aumentar variabilidade
+                "top_p": 0.9,        # Permitir mais diversidade
+                "top_k": 40          # Adicionar mais diversidade na seleção de tokens
             }
         )
-        
+
         # Sanitizar a resposta HTML
         texto_resposta = sanitizar_html(resposta.text)
         
