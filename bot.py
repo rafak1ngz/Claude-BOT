@@ -320,6 +320,26 @@ IMPORTANTE:
 - IGNORE históricos anteriores
 - FOQUE no problema ATUAL
 - Seja TÉCNICO e OBJETIVO
+- Em sua resposta, siga o modelo abaixo:
+
+🔧 DIAGNÓSTICO TÉCNICO
+
+EQUIPAMENTO: [modelo]
+
+❗ PROBLEMA IDENTIFICADO
+Descrição técnica do problema...
+
+📋 ANÁLISE TÉCNICA APROFUNDADA
+Detalhamento técnico...
+
+🔍 CAUSAS PROVÁVEIS
+🔹 Causa técnica específica
+🔹 Outra possível causa... (citar no mínimo 3)
+
+🛠️ PROCEDIMENTO DIAGNÓSTICO
+1. Primeiro passo de diagnóstico
+2. Segundo passo... (citar no mínimo 3)
+
 """
         
         resposta = model.generate_content(
