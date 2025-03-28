@@ -436,139 +436,102 @@ def handle_message(message):
                 "sons, ou qualquer outra observação relevante."
             )
         
-    elif current_stage == 'problem_description':
-        # Capturar descrição do problema
-        problema = message.text.strip()
-        
-        # Validar se a descrição não está vazia
-        if not problema:
-            bot.reply_to(message, "❌ Por favor, descreva o problema em detalhes.")
-            return
-        
-        # Buscar solução via IA
-        equipamento = user_state[user_id]['equipamento']
-        solucao = buscar_solucao_ia(equipamento, problema)
-        
-        # Dividir mensagem
-        mensagens = dividir_mensagem(solucao)
-        
-        # Criar primeira mensagem com cabeçalho
-        primeira_mensagem = f"🔧 Diagnóstico para {equipamento}"
-        
-        # Enviar primeira mensagem (cabeçalho + primeiro conteúdo)
-        if mensagens:
-            bot.reply_to(message, f"{primeira_mensagem}\n\n{mensagens[0]}")
-        
-        # Enviar mensagens subsequentes
-        for msg_adicional in mensagens[1:]:
-            bot.send_message(message.chat.id, msg_adicional)
-        
-        # IMPORTANTE: Não salvar automaticamente no Firestore
-        
-        # Solicitar feedback
-        user_state[user_id] = {
-            'stage': 'feedback',
-            'equipamento': equipamento,
-            'problema': problema,
-            'solucao': solucao  # Manter solução atual
-        }
-        
-        bot.send_message(message.chat.id, 
-            "A solução foi útil?\n"
-            "Responda:\n"
-            "✅ SIM - se a solução resolveu o problema\n"
-            "❌ NÃO - se precisou de outras ações"
-        )
-    
-    elif current_stage == 'feedback':
-        feedback = message.text.strip().lower()
-        
-        if feedback in ['✅', 'sim']:
-            # Aqui salva no Firestore somente com feedback positivo
-            solucao = user_state[user_id]['solucao']
-            equipamento = user_state[user_id]['equipamento']
-            problema = user_state[user_id]['problema']
+        elif current_stage == 'problem_description':
+            # Capturar descrição do problema
+            problema = message.text.strip()
             
+            # Validar se a descrição não está vazia
+            if not problema:
+                bot.reply_to(message, "❌ Por favor, descreva o problema em detalhes.")
+                return
+            
+            # Buscar solução via IA
+            equipamento = user_state[user_id]['equipamento']
+            solucao = buscar_solucao_ia(equipamento, problema)
+            
+            # Dividir mensagem
+            mensagens = dividir_mensagem(solucao)
+            
+            # Criar primeira mensagem com cabeçalho
+            primeira_mensagem = f"🔧 <b>DIAGNÓSTICO PARA: {equipamento}</b>"
+            
+            # Enviar primeira mensagem (cabeçalho + primeiro conteúdo)
+            if mensagens:
+                bot.reply_to(message, f"{primeira_mensagem}\n\n{mensagens[0]}")
+            
+            # Enviar mensagens subsequentes
+            for msg_adicional in mensagens[1:]:
+                bot.send_message(message.chat.id, msg_adicional)
+            
+            # Salvar no Firestore
             salvar_manutencao(equipamento, problema, solucao)
             
-            bot.reply_to(message, 
-                "Ótimo! Fico feliz em ter ajudado. 👍\n"
-                "Solução salva para futuras consultas.\n"
-                "Se precisar de mais alguma coisa, use /start."
-            )
-            # Resetar estado
-            user_state[user_id] = {'stage': 'intro'}
-        
-        elif feedback in ['❌', 'não']:
-            bot.reply_to(message, 
-                "Peço desculpas que a solução não foi completamente efetiva. 🤔\n"
-                "Por favor, descreva:\n"
-                "1. Qual era o DEFEITO ESPECÍFICO?\n"
-                "2. Qual SOLUÇÃO VOCÊ ENCONTROU?"
-            )
-            # Preparar para registrar informação adicional
-            user_state[user_id]['stage'] = 'solution_refinement'
-        
-        else:
-            bot.reply_to(message, 
-                "Desculpe, não entendi sua resposta. 🤨\n"
-                "Por favor, responda com ✅ SIM ou ❌ NÃO"
-            )
-    
-    elif current_stage == 'solution_refinement':
-        # Processar texto com detalhes da solução refinada
-        informacao_adicional = message.text.strip()
-        
-        # Tentar gerar nova solução com informações adicionais
-        try:
-            equipamento = user_state[user_id]['equipamento']
-            problema_original = user_state[user_id]['problema']
-            
-            # Prompt para refinar a solução
-            prompt_refinamento = f"""
-            CONTEXTO ANTERIOR:
-            Equipamento: {equipamento}
-            Problema Original: {problema_original}
-            
-            NOVA INFORMAÇÃO DO TÉCNICO:
-            {informacao_adicional}
-            
-            Por favor, gere uma solução técnica ATUALIZADA e MAIS ESPECÍFICA considerando 
-            as novas informações fornecidas.
-            """
-            
-            # Gerar solução refinada
-            solucao_refinada = buscar_solucao_ia(equipamento, prompt_refinamento)
-            
-            # Salvar solução refinada no Firestore
-            salvar_manutencao(equipamento, problema_original, solucao_refinada)
-            
-            # Dividir mensagem refinada
-            mensagens_refinadas = dividir_mensagem(solucao_refinada)
-            
-            # Enviar mensagens
-            bot.reply_to(message, "🔍 Solução Refinada:")
-            for msg in mensagens_refinadas:
-                bot.send_message(message.chat.id, msg)
+            # Solicitar feedback
+            user_state[user_id] = {
+                'stage': 'feedback',
+                'equipamento': equipamento,
+                'problema': problema,
+                'solucao': solucao
+            }
             
             bot.send_message(message.chat.id, 
-                "Esta solução atende suas necessidades?\n"
-                "✅ SIM - solução satisfatória\n"
-                "❌ NÃO - precisamos revisar novamente"
+                "A solução foi útil?\n"
+                "Responda:\n"
+                "✅ SIM - se a solução resolveu o problema\n"
+                "❌ NÃO - se precisou de outras ações"
             )
-            
-            # Atualizar estado
-            user_state[user_id] = {
-                'stage': 'feedback_refinado',
-                'equipamento': equipamento,
-                'problema': problema_original,
-                'solucao': solucao_refinada
-            }
         
-        except Exception as e:
-            logger.error(f"Erro no refinamento da solução: {e}")
-            bot.reply_to(message, "Desculpe, não foi possível refinar a solução no momento.")
+        elif current_stage == 'feedback':
+            feedback = message.text.strip().lower()
+            
+            if feedback in ['✅', 'sim']:
+                bot.reply_to(message, 
+                    "Ótimo! Fico feliz em ter ajudado. 👍\n"
+                    "Se precisar de mais alguma coisa, use /start."
+                )
+            elif feedback in ['❌', 'não']:
+                bot.reply_to(message, 
+                    "Peço desculpas que a solução não foi completamente efetiva. 🤔\n"
+                    "Por favor, descreva detalhadamente o que foi diferente ou o que não funcionou."
+                )
+                # Preparar para registrar informação adicional
+                user_state[user_id]['stage'] = 'additional_info'
+            else:
+                bot.reply_to(message, 
+                    "Desculpe, não entendi sua resposta. 🤨\n"
+                    "Por favor, responda com ✅ SIM ou ❌ NÃO"
+                )
+        
+        elif current_stage == 'additional_info':
+            informacao_adicional = message.text.strip()
+            
+            # Opcional: Salvar informação adicional no Firestore
+            try:
+                manutencoes_ref = db.collection('manutencoes_feedback')
+                doc_ref = manutencoes_ref.document()
+                doc_ref.set({
+                    'equipamento': user_state[user_id]['equipamento'],
+                    'problema_original': user_state[user_id]['problema'],
+                    'solucao_original': user_state[user_id]['solucao'],
+                    'feedback_negativo': informacao_adicional,
+                    'data': firestore.SERVER_TIMESTAMP
+                })
+                
+                bot.reply_to(message, 
+                    "Obrigado pelo feedback detalhado! 📝\n"
+                    "Nossa equipe irá analisar para melhorar futuras soluções.\n"
+                    "Use /start para novo diagnóstico."
+                )
+            except Exception as e:
+                logger.error(f"Erro ao salvar feedback adicional: {e}")
+                bot.reply_to(message, "Erro ao processar seu feedback. Tente novamente.")
+            
+            # Resetar estado
             user_state[user_id] = {'stage': 'intro'}
+    
+    except Exception as e:
+        logger.error(f"Erro detalhado ao processar: {e}", exc_info=True)
+        bot.reply_to(message, f"Desculpe, ocorreu um erro: {str(e)}")
 
 def start_bot():
     tentativas = 0
