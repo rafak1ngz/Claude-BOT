@@ -4,8 +4,7 @@ import time
 import threading
 import telebot
 import google.generativeai as genai
-from pymongo import MongoClient
-from pymongo.server_api import ServerApi
+from google.cloud import firestore
 from dotenv import load_dotenv
 from datetime import datetime
 import sys
@@ -29,11 +28,10 @@ load_dotenv()
 # Configurações
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
-MONGODB_URI = os.getenv('MONGODB_URI')
 
 # Variáveis globais
 model = None
-manutencoes_collection = None
+db = None
 bot_running = threading.Event()
 user_state = {}  # Dicionário para rastrear o estado do usuário
 
@@ -146,7 +144,7 @@ Empilhadeira Linde H25 perdendo força e desligando sozinha.
     except Exception as e:
         logger.error(f"Erro na sanitização HTML: {e}")
         return "Erro ao processar resposta técnica."
-    
+
 def dividir_mensagem(texto, max_length=4000):
     paragrafos = texto.split('\n')
     mensagens = []
@@ -211,34 +209,46 @@ def configurar_gemini():
         logger.error(f"Erro crítico na configuração do Gemini: {e}", exc_info=True)
         return False
 
-# Configuração do MongoDB
-def configurar_mongodb():
-    global manutencoes_collection
+# Configuração do Firestore
+def configurar_firestore():
+    global db
     try:
-        logger.info("Iniciando conexão com MongoDB")
-        # Configurações SSL mais flexíveis
-        mongo_client = MongoClient(
-            MONGODB_URI, 
-            server_api=ServerApi('1'), 
-            tls=True,
-            tlsAllowInvalidCertificates=True,  # Permite certificados inválidos
-            socketTimeoutMS=30000,  # Timeout de 30 segundos
-            connectTimeoutMS=30000,
-            serverSelectionTimeoutMS=30000,
-            waitQueueTimeoutMS=30000
-        )
-        
-        db = mongo_client['empilhadeiras_db']
-        manutencoes_collection = db['manutencoes']
-        logger.info("Conexão com MongoDB estabelecida com sucesso!")
+        db = firestore.Client()
+        logger.info("Conexão com Firestore estabelecida com sucesso!")
+        return db
+    except Exception as e:
+        logger.error(f"Erro na conexão com Firestore: {e}", exc_info=True)
+        return None
+
+# Salvar manutenção no Firestore
+def salvar_manutencao(equipamento, problema, solucao):
+    try:
+        manutencoes_ref = db.collection('manutencoes')
+        doc_ref = manutencoes_ref.document()
+        doc_ref.set({
+            'equipamento': equipamento,
+            'problema': problema,
+            'solucao': solucao,
+            'data': firestore.SERVER_TIMESTAMP
+        })
+        logger.info("Registro salvo no Firestore")
         return True
     except Exception as e:
-        logger.error(f"Erro na conexão com MongoDB: {e}", exc_info=True)
+        logger.error(f"Erro ao salvar no Firestore: {e}")
         return False
 
-# Inicializar Telegram Bot
-bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN, parse_mode='HTML')
+# Buscar soluções anteriores no Firestore
+def buscar_solucoes_anteriores(equipamento):
+    try:
+        manutencoes_ref = db.collection('manutencoes')
+        query = manutencoes_ref.where('equipamento', '==', equipamento).order_by('data', direction=firestore.Query.DESCENDING).limit(5)
+        solucoes = [doc.to_dict() for doc in query.stream()]
+        return solucoes
+    except Exception as e:
+        logger.error(f"Erro ao buscar soluções anteriores: {e}")
+        return []
 
+# Buscar solução via IA
 def buscar_solucao_ia(equipamento, problema):
     try:
         if not model:
@@ -302,6 +312,9 @@ def buscar_solucao_ia(equipamento, problema):
         logger.error(f"Erro na consulta de IA: {e}", exc_info=True)
         return f"🚫 Ops! Não consegui processar o diagnóstico. Erro: {str(e)} 😓"
 
+# Telegram Bot - Configuração
+bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN, parse_mode='HTML')
+
 @bot.message_handler(commands=['start'])
 def mensagem_inicial(message):
     logger.info(f"Comando /start recebido de {message.from_user.username}")
@@ -324,7 +337,7 @@ def handle_message(message):
     
     # Se o usuário não tiver estado definido ou estiver fora do fluxo correto, reiniciar
     if (user_id not in user_state or 
-        user_state[user_id].get('stage') not in ['intro', 'problem_description']):
+        user_state[user_id].get('stage') not in ['intro', 'problem_description', 'feedback']):
         # Sempre redirecionar para a mensagem inicial
         bot.reply_to(message, 
             "🚧 Assistente Técnico de Manutenção 🚧\n\n"
@@ -391,27 +404,71 @@ def handle_message(message):
             for msg_adicional in mensagens[1:]:
                 bot.send_message(message.chat.id, msg_adicional)
             
-            # Salvar no banco de dados (opcional)
-            if manutencoes_collection is not None:
-                try:
-                    registro = {
-                        'equipamento': equipamento,
-                        'problema': problema,
-                        'solucao': solucao,
-                        'data': datetime.now()
-                    }
-                    manutencoes_collection.insert_one(registro)
-                    logger.info("Registro salvo no MongoDB")
-                except Exception as db_error:
-                    logger.error(f"Erro ao salvar no banco de dados: {db_error}")
+            # Salvar no Firestore
+            salvar_manutencao(equipamento, problema, solucao)
             
-            # Resetar estado para permitir novo diagnóstico
-            user_state[user_id] = {'stage': 'intro'}
+            # Solicitar feedback
+            user_state[user_id] = {
+                'stage': 'feedback',
+                'equipamento': equipamento,
+                'problema': problema,
+                'solucao': solucao
+            }
             
-            # Mensagem final
             bot.send_message(message.chat.id, 
-                "Posso ajudar em mais alguma coisa? "
-                "Use /start para iniciar um novo diagnóstico.")
+                "A solução foi útil?\n"
+                "Responda:\n"
+                "✅ SIM - se a solução resolveu o problema\n"
+                "❌ NÃO - se precisou de outras ações"
+            )
+        
+        elif current_stage == 'feedback':
+            feedback = message.text.strip().lower()
+            
+            if feedback in ['✅', 'sim']:
+                bot.reply_to(message, 
+                    "Ótimo! Fico feliz em ter ajudado. 👍\n"
+                    "Se precisar de mais alguma coisa, use /start."
+                )
+            elif feedback in ['❌', 'não']:
+                bot.reply_to(message, 
+                    "Peço desculpas que a solução não foi completamente efetiva. 🤔\n"
+                    "Por favor, descreva detalhadamente o que foi diferente ou o que não funcionou."
+                )
+                # Preparar para registrar informação adicional
+                user_state[user_id]['stage'] = 'additional_info'
+            else:
+                bot.reply_to(message, 
+                    "Desculpe, não entendi sua resposta. 🤨\n"
+                    "Por favor, responda com ✅ SIM ou ❌ NÃO"
+                )
+        
+        elif current_stage == 'additional_info':
+            informacao_adicional = message.text.strip()
+            
+            # Opcional: Salvar informação adicional no Firestore
+            try:
+                manutencoes_ref = db.collection('manutencoes_feedback')
+                doc_ref = manutencoes_ref.document()
+                doc_ref.set({
+                    'equipamento': user_state[user_id]['equipamento'],
+                    'problema_original': user_state[user_id]['problema'],
+                    'solucao_original': user_state[user_id]['solucao'],
+                    'feedback_negativo': informacao_adicional,
+                    'data': firestore.SERVER_TIMESTAMP
+                })
+                
+                bot.reply_to(message, 
+                    "Obrigado pelo feedback detalhado! 📝\n"
+                    "Nossa equipe irá analisar para melhorar futuras soluções.\n"
+                    "Use /start para novo diagnóstico."
+                )
+            except Exception as e:
+                logger.error(f"Erro ao salvar feedback adicional: {e}")
+                bot.reply_to(message, "Erro ao processar seu feedback. Tente novamente.")
+            
+            # Resetar estado
+            user_state[user_id] = {'stage': 'intro'}
     
     except Exception as e:
         logger.error(f"Erro detalhado ao processar: {e}", exc_info=True)
@@ -452,9 +509,9 @@ def start_bot():
 def main():
     # Configurações iniciais
     gemini_ok = configurar_gemini()
-    mongodb_ok = configurar_mongodb()
+    firestore_ok = configurar_firestore()
     
-    if not (gemini_ok and mongodb_ok):
+    if not (gemini_ok and firestore_ok):
         logger.critical("Falha em configurar serviços. Encerrando.")
         return
     

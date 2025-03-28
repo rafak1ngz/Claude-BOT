@@ -1,5 +1,6 @@
 pyTelegramBotAPI==4.26.0
 python-dotenv==1.0.0
-pymongo==4.6.1
 google-generativeai==0.4.0  # Versão mais recente
 dnspython==2.6.1
+google-cloud-firestore==2.15.0
+google-auth==2.27.0
