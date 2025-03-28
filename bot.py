@@ -13,7 +13,6 @@ import html
 from google.oauth2 import service_account
 import json
 
-
 # Configurar logging
 logging.basicConfig(
     level=logging.INFO,
@@ -238,7 +237,7 @@ def configurar_firestore():
     except Exception as e:
         logger.error(f"Erro na conexão com Firestore: {e}", exc_info=True)
         return None
-    
+
 # Salvar manutenção no Firestore
 def salvar_manutencao(equipamento, problema, solucao):
     try:
