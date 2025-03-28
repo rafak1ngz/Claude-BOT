@@ -394,28 +394,41 @@ def mensagem_inicial(message):
 def handle_message(message):
     user_id = message.from_user.id
     
-    # Se o usuário não tiver estado definido ou estiver fora do fluxo correto, reiniciar
-    if (user_id not in user_state or 
-        user_state[user_id].get('stage') not in ['intro', 'problem_description', 'feedback', 'solution_refinement', 'feedback_refinado']):
-        # Sempre redirecionar para a mensagem inicial
-        bot.reply_to(message, 
-            "🚧 Assistente Técnico de Manutenção 🚧\n\n"
-            "Vamos começar: Por favor, informe detalhes do equipamento:\n"
-            "• Marca\n"
-            "• Modelo\n"
-            "• Versão/Ano\n\n"
-            "Exemplo: Transpaleteira elétrica Linde T20 SP - 2022"
-        )
-        # Resetar o estado para o estágio inicial
+    # Adicionar log para debug
+    logger.info(f"Mensagem recebida. User ID: {user_id}, Stage: {user_state.get(user_id, {}).get('stage', 'Não definido')}")
+    
+    # Se o usuário não tiver estado definido, inicializar
+    if user_id not in user_state:
         user_state[user_id] = {'stage': 'intro'}
-        return
     
     try:
-        current_stage = user_state[user_id].get('stage')
+        current_stage = user_state[user_id].get('stage', 'intro')
         
         if current_stage == 'intro':
-            # [Mantém o código anterior]
-            pass
+            # Capturar informações do equipamento
+            equipamento = message.text.strip()
+            
+            # Validar se a mensagem não está vazia
+            if not equipamento:
+                bot.reply_to(message, "❌ Por favor, informe os detalhes do equipamento.")
+                return
+            
+            # Log de debug
+            logger.info(f"Equipamento capturado: {equipamento}")
+            
+            # Salvar informações do equipamento e mudar para próximo estágio
+            user_state[user_id] = {
+                'stage': 'problem_description',
+                'equipamento': equipamento
+            }
+            
+            # Solicitar descrição do problema
+            bot.reply_to(message, 
+                f"✅ Equipamento registrado: <b>{equipamento}</b>\n\n"
+                "Agora, descreva detalhadamente o problema que você está enfrentando. "
+                "Seja o mais específico possível sobre os sintomas, comportamentos incomuns, "
+                "sons, ou qualquer outra observação relevante."
+            )
         
         elif current_stage == 'problem_description':
             # Capturar descrição do problema
@@ -425,6 +438,9 @@ def handle_message(message):
             if not problema:
                 bot.reply_to(message, "❌ Por favor, descreva o problema em detalhes.")
                 return
+            
+            # Log de debug
+            logger.info(f"Problema capturado: {problema}")
             
             # Buscar solução via IA
             equipamento = user_state[user_id]['equipamento']
@@ -443,8 +459,6 @@ def handle_message(message):
             # Enviar mensagens subsequentes
             for msg_adicional in mensagens[1:]:
                 bot.send_message(message.chat.id, msg_adicional)
-            
-            # IMPORTANTE: Não salvar automaticamente no Firestore
             
             # Solicitar feedback
             user_state[user_id] = {
@@ -579,6 +593,8 @@ as novas informações fornecidas.
     except Exception as e:
         logger.error(f"Erro detalhado ao processar: {e}", exc_info=True)
         bot.reply_to(message, f"Desculpe, ocorreu um erro: {str(e)}")
+        # Resetar estado em caso de erro
+        user_state[user_id] = {'stage': 'intro'}
 
 def start_bot():
     tentativas = 0
