@@ -52,27 +52,20 @@ def sanitizar_html(texto):
             secao = secao.strip()
             
             # Formatação de títulos principais
-            if secao.startswith('Diagnóstico para'):
-                texto_formatado.append(f'<b>🔧 {secao}</b>\n')
+            if re.match(r'^Diagnóstico', secao):
+                texto_formatado.append(f'<b>{secao}</b>\n')
             
-            # Formatação de títulos de seção
-            elif secao.startswith('Análise técnica'):
-                texto_formatado.append(f'\n<b>📋 Análise Técnica Detalhada</b>\n{secao.replace("Análise técnica detalhada do problema atual:", "").strip()}\n')
+            # Formatação de títulos numerados
+            elif re.match(r'^\d+\.', secao):
+                # Formatando títulos numerados em negrito
+                titulo_match = re.match(r'^(\d+\. [^:\n]+)', secao)
+                if titulo_match:
+                    titulo = titulo_match.group(1)
+                    conteudo = secao[len(titulo):].strip()
+                    texto_formatado.append(f'<b>{titulo}</b>\n{conteudo}\n')
             
-            elif secao.startswith('Possíveis causas'):
-                texto_formatado.append(f'\n<b>🔍 Possíveis Causas</b>\n')
-            
-            elif secao.startswith('Procedimento de diagnóstico'):
-                texto_formatado.append(f'\n<b>🔬 Procedimento de Diagnóstico</b>\n')
-            
-            elif secao.startswith('Passos de reparo'):
-                texto_formatado.append(f'\n<b>🛠️ Passos de Reparo</b>\n')
-            
-            elif secao.startswith('Peças potencialmente envolvidas'):
-                texto_formatado.append(f'\n<b>🧩 Peças Potencialmente Envolvidas</b>\n')
-            
-            # Processamento de itens com marcador *
-            elif secao.startswith('*'):
+            # Processamento de listas com *
+            elif '*' in secao:
                 linhas = [linha.strip() for linha in secao.split('\n') if linha.strip()]
                 linhas_formatadas = []
                 for linha in linhas:
@@ -83,15 +76,7 @@ def sanitizar_html(texto):
                         linhas_formatadas.append(linha)
                 texto_formatado.append('\n'.join(linhas_formatadas) + '\n')
             
-            # Processar seções de procedimentos numerados
-            elif re.match(r'^\d+\.', secao):
-                texto_formatado.append(f'{secao}\n')
-            
-            # Observações e outras seções
-            elif secao.startswith('Observação'):
-                texto_formatado.append(f'\n<b>⚠️ {secao}</b>\n')
-            
-            # Adicionar outras seções com menos espaçamento
+            # Outras seções
             else:
                 texto_formatado.append(f'{secao}\n')
         
@@ -115,6 +100,7 @@ def sanitizar_html(texto):
     except Exception as e:
         logger.error(f"Erro na sanitização HTML: {e}")
         return "Erro ao processar resposta técnica."
+
 def dividir_mensagem(texto, max_length=4000):
     paragrafos = texto.split('\n')
     mensagens = []
