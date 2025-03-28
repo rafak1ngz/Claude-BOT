@@ -57,24 +57,6 @@ def sanitizar_html(texto):
             if not linha:
                 continue
             
-            # Processamento de títulos e seções principais
-            if linha.lower().startswith('diagnóstico'):
-                texto_formatado.append(f'<b>🔧 DIAGNÓSTICO TÉCNICO</b>')
-            
-            elif any(termo in linha.lower() for termo in ['problema:', 'problema detectado']):
-                texto_formatado.append(f'<b>❗ PROBLEMA IDENTIFICADO</b>')
-            
-            elif any(termo in linha.lower() for termo in ['análise técnica', 'análise detalhada']):
-                texto_formatado.append(f'<b>📋 ANÁLISE TÉCNICA APROFUNDADA</b>')
-            
-            elif any(termo in linha.lower() for termo in ['causas', 'possíveis causas']):
-                texto_formatado.append(f'<b>🔍 CAUSAS PROVÁVEIS</b>')
-                em_lista = True
-            
-            elif any(termo in linha.lower() for termo in ['procedimento', 'diagnóstico personalizado']):
-                texto_formatado.append(f'\n<b>🛠️ PROCEDIMENTO DIAGNÓSTICO</b>')
-                em_procedimento = True
-            
             # Processamento de listas
             elif em_lista and linha.startswith(('*', '-', '•')):
                 linha_limpa = linha.lstrip('*-•').strip()
