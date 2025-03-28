@@ -6,3 +6,4 @@ google-cloud-firestore==2.15.0
 google-auth==2.27.0
 google-cloud-core==2.4.1
 protobuf==4.25.3
+numpy==1.24.3
