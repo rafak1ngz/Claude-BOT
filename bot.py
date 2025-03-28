@@ -42,36 +42,56 @@ def sanitizar_html(texto):
         # Remover marcações redundantes
         texto = texto.replace('**', '')
         
-        # Dividir o texto em seções
+        # Dividir o texto em seções mantendo quebras de linha
         linhas = texto.split('\n')
         texto_formatado = []
         
         # Flags de controle
         em_lista = False
         em_procedimento = False
+        paragrafo_atual = []
         
         for linha in linhas:
             linha = linha.strip()
             
-            # Pular linhas vazias
+            # Pular linhas completamente vazias
             if not linha:
+                # Adicionar parágrafo atual se existir
+                if paragrafo_atual:
+                    texto_formatado.append('\n'.join(paragrafo_atual))
+                    paragrafo_atual = []
+                # Adicionar linha em branco para manter espaçamento
+                texto_formatado.append('')
                 continue
             
             # Processamento de listas
-            elif em_lista and linha.startswith(('*', '-', '•')):
+            if linha.startswith(('*', '-', '•')):
                 linha_limpa = linha.lstrip('*-•').strip()
-                texto_formatado.append(f'➡️ {linha_limpa}')
+                paragrafo_atual.append(f'➡️ {linha_limpa}')
+                em_lista = True
             
             # Processamento de procedimentos numerados
-            elif em_procedimento and re.match(r'^\d+\.', linha):
-                texto_formatado.append(f'<b>{linha}</b>')
+            elif re.match(r'^\d+\.', linha):
+                paragrafo_atual.append(f'<b>{linha}</b>')
+                em_procedimento = True
             
             # Conteúdo normal
             else:
-                texto_formatado.append(linha)
+                # Se estávamos em uma lista ou procedimento, fechamos
+                if em_lista or em_procedimento:
+                    texto_formatado.append('\n'.join(paragrafo_atual))
+                    paragrafo_atual = []
+                    em_lista = False
+                    em_procedimento = False
+                
+                paragrafo_atual.append(linha)
+        
+        # Adicionar último parágrafo se existir
+        if paragrafo_atual:
+            texto_formatado.append('\n'.join(paragrafo_atual))
         
         # Juntar o texto formatado
-        texto_final = '\n'.join(texto_formatado)
+        texto_final = '\n\n'.join(texto_formatado)
         
         # Tratamento HTML
         texto_final = html.escape(texto_final, quote=False)
@@ -80,7 +100,7 @@ def sanitizar_html(texto):
             texto_final = texto_final.replace(f'&lt;{tag}&gt;', f'<{tag}>')
             texto_final = texto_final.replace(f'&lt;/{tag}&gt;', f'</{tag}>')
         
-        # Remover espaços em branco excessivos
+        # Remover espaços em branco excessivos, mas manter pelo menos duas quebras de linha
         texto_final = re.sub(r'\n{3,}', '\n\n', texto_final)
         
         # Adicionar rodapé técnico
