@@ -39,44 +39,64 @@ user_state = {}  # Dicionário para rastrear o estado do usuário
 
 def sanitizar_html(texto):
     try:
-        # Dividir o texto em seções usando markdown
+        # Dividir o texto em seções
         secoes = texto.split('**')
         
         # Remover primeira seção vazia (antes do primeiro **)
         secoes = secoes[1:] if len(secoes) > 1 else secoes
         
-        # Dicionário para mapeamento de seções
-        mapeamento_secoes = {
-            'Diagnóstico Técnico': '<b>Diagnóstico Técnico</b>',
-            'Contexto Específico de Diagnóstico Técnico': '',
-            'Problema:': '<b>1. Problema</b>',
-            'Análise Técnica Detalhada:': '<b>2. Análise Técnica Detalhada</b>',
-            'Possíveis Causas Específicas': '<b>3. Possíveis Causas</b>',
-            'Procedimento de Diagnóstico Personalizado:': '<b>4. Procedimento de Diagnóstico</b>',
-            'Passos de Reparo Direcionados:': '<b>5. Passos de Reparo</b>',
-            'Peças Potencialmente Envolvidas:': '<b>6. Peças Potencialmente Envolvidas</b>'
-        }
-        
         # Lista para armazenar partes formatadas
         texto_formatado = []
         
-        # Processar cada seção
+        # Processamento de seções
         for secao in secoes:
             secao = secao.strip()
             
-            # Verificar se a seção começa com alguma chave conhecida
-            correspondencia = False
-            for chave, formatacao in mapeamento_secoes.items():
-                if secao.startswith(chave):
-                    # Remover prefixo da chave e adicionar formatação
-                    conteudo = secao.replace(chave, '').strip()
-                    texto_formatado.append(f"{formatacao}\n{conteudo}\n")
-                    correspondencia = True
-                    break
+            # Formatação de títulos principais
+            if secao.startswith('Diagnóstico para'):
+                texto_formatado.append(f'<b>🔧 {secao}</b>\n\n')
             
-            # Se nenhuma correspondência, adicionar como está
-            if not correspondencia and secao:
-                texto_formatado.append(secao + '\n')
+            # Formatação de títulos de seção
+            elif secao.startswith('Análise técnica'):
+                texto_formatado.append(f'<b>Análise Técnica Detalhada</b>\n{secao.replace("Análise técnica detalhada do problema atual:", "").strip()}\n\n')
+            
+            elif secao.startswith('Possíveis causas'):
+                texto_formatado.append(f'<b>Possíveis Causas</b>\n')
+            
+            elif secao.startswith('Procedimento de diagnóstico'):
+                texto_formatado.append(f'\n<b>Procedimento de Diagnóstico</b>\n')
+            
+            elif secao.startswith('Passos de reparo'):
+                texto_formatado.append(f'\n<b>Passos de Reparo</b>\n')
+            
+            elif secao.startswith('Peças potencialmente envolvidas'):
+                texto_formatado.append(f'\n<b>Peças Potencialmente Envolvidas</b>\n')
+            
+            # Processamento de itens com marcador *
+            elif secao.startswith('*'):
+                # Substituir * por marcadores numerados ou marcadores de lista
+                linhas = [linha.strip() for linha in secao.split('\n') if linha.strip()]
+                linhas_formatadas = []
+                for linha in linhas:
+                    if linha.startswith('*'):
+                        # Remover o * e manter o texto
+                        linha_limpa = linha.replace('*', '').strip()
+                        linhas_formatadas.append(f'• {linha_limpa}')
+                    else:
+                        linhas_formatadas.append(linha)
+                texto_formatado.append('\n'.join(linhas_formatadas) + '\n')
+            
+            # Processar seções de procedimentos numerados
+            elif re.match(r'^\d+\.', secao):
+                texto_formatado.append(f'{secao}\n')
+            
+            # Observações e outras seções
+            elif secao.startswith('Observação'):
+                texto_formatado.append(f'\n<b>⚠️ {secao}</b>\n')
+            
+            # Adicionar outras seções como estão
+            else:
+                texto_formatado.append(f'{secao}\n')
         
         # Juntar todas as seções
         texto_final = '\n'.join(texto_formatado)
