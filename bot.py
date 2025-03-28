@@ -75,11 +75,10 @@ def sanitizar_html(texto):
                 continue
             
             # Remover títulos duplicados
-            if linha.startswith('Diagnóstico Técnico'):
+            if re.match(r'^Diagnóstico Técnico|^\d+\.', linha):
                 if linha not in titulos_vistos:
                     titulos_vistos.add(linha)
-                    linhas_filtradas.append(linha)
-                continue
+                    continue
             
             # Remover emojis duplicados no cabeçalho
             if linha.startswith('🔧 Diagnóstico'):
@@ -99,12 +98,54 @@ def sanitizar_html(texto):
             texto_escaped = texto_escaped.replace(f'&lt;{tag}&gt;', f'<{tag}>')
             texto_escaped = texto_escaped.replace(f'&lt;/{tag}&gt;', f'</{tag}>')
         
-        return texto_escaped.strip()
+        # Adicionar formatação HTML para títulos e melhorar legibilidade
+        texto_formatado = f"""<b>Diagnóstico Técnico - Linde H25</b>
+
+<b>1. Análise do problema reportado</b>
+Empilhadeira Linde H25 perdendo força e desligando sozinha.
+
+<b>2. Possíveis causas da falha</b>
+• Sistema de Combustível: Filtro de combustível entupido, bomba de combustível com baixa pressão ou falha, injetores sujos ou defeituosos.
+• Sistema Elétrico: Alternador com defeito, bateria fraca, mau contato em conexões elétricas, sensor de rotação com problema.
+• Sistema de Ar: Filtro de ar excessivamente sujo, entrada de ar falsa.
+• Motor: Baixa compressão, superaquecimento.
+
+<b>3. Procedimento de diagnóstico</b>
+• Verificar o nível de combustível.
+• Inspecionar visualmente o filtro de ar e o filtro de combustível.
+• Verificar a tensão da bateria e o funcionamento do alternador.
+• Analisar a pressão da bomba de combustível.
+• Testar os injetores.
+• Verificar se há códigos de erro na central eletrônica (se aplicável).
+• Medir a compressão do motor.
+• Verificar a temperatura do motor.
+
+<b>4. Passos para reparo ou manutenção</b>
+• Substituir o filtro de combustível e/ou de ar, se necessário.
+• Reparar ou substituir a bomba de combustível, se defeituosa.
+• Limpar ou substituir os injetores.
+• Reparar ou substituir o alternador ou bateria, se necessário.
+• Corrigir qualquer mau contato elétrico.
+• Reparar a entrada de ar falsa, se houver.
+• Realizar a manutenção corretiva no motor, conforme necessário (ex: anéis, junta de cabeçote).
+
+<b>5. Peças potencialmente envolvidas</b>
+<i>(Informar com código do fabricante - Necessário consultar o manual de peças da Linde H25 para os códigos específicos do modelo)</i>
+• Filtro de Combustível
+• Bomba de Combustível
+• Injetores
+• Filtro de Ar
+• Alternador
+• Bateria
+• Sensor de Rotação
+• Anéis de Segmento
+• Junta de Cabeçote"""
+        
+        return texto_formatado
     
     except Exception as e:
         logger.error(f"Erro na sanitização HTML: {e}")
         return "Erro ao processar resposta técnica."
-
 def dividir_mensagem(texto, max_length=4000):
     paragrafos = texto.split('\n')
     mensagens = []
