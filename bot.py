@@ -39,47 +39,44 @@ user_state = {}  # Dicionário para rastrear o estado do usuário
 
 def sanitizar_html(texto):
     try:
+        # Remover espaços em branco excessivos
+        texto = re.sub(r'\n{3,}', '\n\n', texto)
+        
         # Dividir o texto em seções
         secoes = texto.split('**')
-        
-        # Remover primeira seção vazia (antes do primeiro **)
         secoes = secoes[1:] if len(secoes) > 1 else secoes
         
-        # Lista para armazenar partes formatadas
         texto_formatado = []
         
-        # Processamento de seções
         for secao in secoes:
             secao = secao.strip()
             
             # Formatação de títulos principais
             if secao.startswith('Diagnóstico para'):
-                texto_formatado.append(f'<b>🔧 {secao}</b>\n\n')
+                texto_formatado.append(f'<b>🔧 {secao}</b>\n')
             
             # Formatação de títulos de seção
             elif secao.startswith('Análise técnica'):
-                texto_formatado.append(f'<b>Análise Técnica Detalhada</b>\n{secao.replace("Análise técnica detalhada do problema atual:", "").strip()}\n\n')
+                texto_formatado.append(f'\n<b>📋 Análise Técnica Detalhada</b>\n{secao.replace("Análise técnica detalhada do problema atual:", "").strip()}\n')
             
             elif secao.startswith('Possíveis causas'):
-                texto_formatado.append(f'<b>Possíveis Causas</b>\n')
+                texto_formatado.append(f'\n<b>🔍 Possíveis Causas</b>\n')
             
             elif secao.startswith('Procedimento de diagnóstico'):
-                texto_formatado.append(f'\n<b>Procedimento de Diagnóstico</b>\n')
+                texto_formatado.append(f'\n<b>🔬 Procedimento de Diagnóstico</b>\n')
             
             elif secao.startswith('Passos de reparo'):
-                texto_formatado.append(f'\n<b>Passos de Reparo</b>\n')
+                texto_formatado.append(f'\n<b>🛠️ Passos de Reparo</b>\n')
             
             elif secao.startswith('Peças potencialmente envolvidas'):
-                texto_formatado.append(f'\n<b>Peças Potencialmente Envolvidas</b>\n')
+                texto_formatado.append(f'\n<b>🧩 Peças Potencialmente Envolvidas</b>\n')
             
             # Processamento de itens com marcador *
             elif secao.startswith('*'):
-                # Substituir * por marcadores numerados ou marcadores de lista
                 linhas = [linha.strip() for linha in secao.split('\n') if linha.strip()]
                 linhas_formatadas = []
                 for linha in linhas:
                     if linha.startswith('*'):
-                        # Remover o * e manter o texto
                         linha_limpa = linha.replace('*', '').strip()
                         linhas_formatadas.append(f'• {linha_limpa}')
                     else:
@@ -94,7 +91,7 @@ def sanitizar_html(texto):
             elif secao.startswith('Observação'):
                 texto_formatado.append(f'\n<b>⚠️ {secao}</b>\n')
             
-            # Adicionar outras seções como estão
+            # Adicionar outras seções com menos espaçamento
             else:
                 texto_formatado.append(f'{secao}\n')
         
@@ -110,12 +107,14 @@ def sanitizar_html(texto):
             texto_final = texto_final.replace(f'&lt;{tag}&gt;', f'<{tag}>')
             texto_final = texto_final.replace(f'&lt;/{tag}&gt;', f'</{tag}>')
         
+        # Remover linhas em branco consecutivas
+        texto_final = re.sub(r'\n{3,}', '\n\n', texto_final)
+        
         return texto_final
     
     except Exception as e:
         logger.error(f"Erro na sanitização HTML: {e}")
         return "Erro ao processar resposta técnica."
-
 def dividir_mensagem(texto, max_length=4000):
     paragrafos = texto.split('\n')
     mensagens = []
