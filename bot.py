@@ -39,37 +39,51 @@ user_state = {}  # Dicionário para rastrear o estado do usuário
 
 def sanitizar_html(texto):
     try:
-        # Remover completamente tags HTML não suportadas
-        tags_removidas = [
-            r'<!DOCTYPE.*?>', 
-            r'<html.*?>', 
-            r'</html>', 
-            r'<head.*?>', 
-            r'</head>', 
-            r'<body.*?>', 
-            r'</body>', 
-            r'<title.*?>', 
-            r'</title>',
-            r'<meta.*?>'
-        ]
+        # Dividir o texto em seções
+        secoes = texto.split('**')
         
-        for tag in tags_removidas:
-            texto = re.sub(tag, '', texto, flags=re.DOTALL | re.IGNORECASE)
+        # Formatar seções
+        texto_formatado = []
         
-        # Remover marcadores de código
-        texto = re.sub(r'```html', '', texto)
-        texto = re.sub(r'```', '', texto)
+        # Adicionar título com formatação
+        titulo = f"<b>Diagnóstico Técnico - {secoes[1].strip()}</b>\n\n"
+        texto_formatado.append(titulo)
         
-        # Escapar o texto para evitar parsing incorreto
-        texto_escaped = html.escape(texto, quote=False)
+        # Processar seções restantes
+        for secao in secoes[2:]:
+            # Remover marcadores de seção
+            secao = secao.strip()
+            
+            # Identificar tipo de seção e formatar
+            if secao.startswith('Problema:'):
+                texto_formatado.append(f"<b>1. Problema</b>\n{secao.replace('Problema:', '').strip()}\n")
+            elif secao.startswith('Análise Técnica Detalhada:'):
+                texto_formatado.append(f"<b>2. Análise Técnica Detalhada</b>\n{secao.replace('Análise Técnica Detalhada:', '').strip()}\n")
+            elif secao.startswith('Possíveis Causas Específicas'):
+                texto_formatado.append(f"<b>3. Possíveis Causas</b>\n{secao.replace('Possíveis Causas Específicas para a Linde RC20:', '').strip()}\n")
+            elif secao.startswith('Procedimento de Diagnóstico'):
+                texto_formatado.append(f"<b>4. Procedimento de Diagnóstico</b>\n{secao.replace('Procedimento de Diagnóstico Personalizado para Linde RC20:', '').strip()}\n")
+            elif secao.startswith('Passos de Reparo'):
+                texto_formatado.append(f"<b>5. Passos de Reparo</b>\n{secao.replace('Passos de Reparo Direcionados:', '').strip()}\n")
+            elif secao.startswith('Peças Potencialmente Envolvidas:'):
+                texto_formatado.append(f"<b>6. Peças Potencialmente Envolvidas</b>\n{secao.replace('Peças Potencialmente Envolvidas:', '').strip()}\n")
+            else:
+                # Adicionar seções não identificadas como estão
+                texto_formatado.append(secao + '\n')
         
-        # Restaurar tags HTML básicas permitidas
+        # Juntar todas as seções
+        texto_final = '\n'.join(texto_formatado)
+        
+        # Escapar caracteres especiais
+        texto_final = html.escape(texto_final, quote=False)
+        
+        # Restaurar tags HTML básicas
         tags_permitidas = ['b', 'i', 'u', 'code', 'pre']
         for tag in tags_permitidas:
-            texto_escaped = texto_escaped.replace(f'&lt;{tag}&gt;', f'<{tag}>')
-            texto_escaped = texto_escaped.replace(f'&lt;/{tag}&gt;', f'</{tag}>')
+            texto_final = texto_final.replace(f'&lt;{tag}&gt;', f'<{tag}>')
+            texto_final = texto_final.replace(f'&lt;/{tag}&gt;', f'</{tag}>')
         
-        return texto_escaped
+        return texto_final
     
     except Exception as e:
         logger.error(f"Erro na sanitização HTML: {e}")
@@ -245,9 +259,6 @@ def buscar_solucao_ia(equipamento, problema):
                 "top_p": 0.9
             }
         )
-        
-        # Log do texto original recebido
-        logger.info(f"Texto original do Gemini: {resposta.text}")
         
         # Sanitizar a resposta HTML
         texto_resposta = sanitizar_html(resposta.text)
