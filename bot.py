@@ -39,36 +39,43 @@ user_state = {}  # Dicionário para rastrear o estado do usuário
 
 def sanitizar_html(texto):
     try:
-        # Dividir o texto em seções
+        # Dividir o texto em seções usando markdown
         secoes = texto.split('**')
         
-        # Formatar seções
+        # Remover primeira seção vazia (antes do primeiro **)
+        secoes = secoes[1:] if len(secoes) > 1 else secoes
+        
+        # Dicionário para mapeamento de seções
+        mapeamento_secoes = {
+            'Diagnóstico Técnico': '<b>Diagnóstico Técnico</b>',
+            'Contexto Específico de Diagnóstico Técnico': '',
+            'Problema:': '<b>1. Problema</b>',
+            'Análise Técnica Detalhada:': '<b>2. Análise Técnica Detalhada</b>',
+            'Possíveis Causas Específicas': '<b>3. Possíveis Causas</b>',
+            'Procedimento de Diagnóstico Personalizado:': '<b>4. Procedimento de Diagnóstico</b>',
+            'Passos de Reparo Direcionados:': '<b>5. Passos de Reparo</b>',
+            'Peças Potencialmente Envolvidas:': '<b>6. Peças Potencialmente Envolvidas</b>'
+        }
+        
+        # Lista para armazenar partes formatadas
         texto_formatado = []
         
-        # Adicionar título com formatação
-        titulo = f"<b>Diagnóstico Técnico - {secoes[1].strip()}</b>\n\n"
-        texto_formatado.append(titulo)
-        
-        # Processar seções restantes
-        for secao in secoes[2:]:
-            # Remover marcadores de seção
+        # Processar cada seção
+        for secao in secoes:
             secao = secao.strip()
             
-            # Identificar tipo de seção e formatar
-            if secao.startswith('Problema:'):
-                texto_formatado.append(f"<b>1. Problema</b>\n{secao.replace('Problema:', '').strip()}\n")
-            elif secao.startswith('Análise Técnica Detalhada:'):
-                texto_formatado.append(f"<b>2. Análise Técnica Detalhada</b>\n{secao.replace('Análise Técnica Detalhada:', '').strip()}\n")
-            elif secao.startswith('Possíveis Causas Específicas'):
-                texto_formatado.append(f"<b>3. Possíveis Causas</b>\n{secao.replace('Possíveis Causas Específicas para a Linde RC20:', '').strip()}\n")
-            elif secao.startswith('Procedimento de Diagnóstico'):
-                texto_formatado.append(f"<b>4. Procedimento de Diagnóstico</b>\n{secao.replace('Procedimento de Diagnóstico Personalizado para Linde RC20:', '').strip()}\n")
-            elif secao.startswith('Passos de Reparo'):
-                texto_formatado.append(f"<b>5. Passos de Reparo</b>\n{secao.replace('Passos de Reparo Direcionados:', '').strip()}\n")
-            elif secao.startswith('Peças Potencialmente Envolvidas:'):
-                texto_formatado.append(f"<b>6. Peças Potencialmente Envolvidas</b>\n{secao.replace('Peças Potencialmente Envolvidas:', '').strip()}\n")
-            else:
-                # Adicionar seções não identificadas como estão
+            # Verificar se a seção começa com alguma chave conhecida
+            correspondencia = False
+            for chave, formatacao in mapeamento_secoes.items():
+                if secao.startswith(chave):
+                    # Remover prefixo da chave e adicionar formatação
+                    conteudo = secao.replace(chave, '').strip()
+                    texto_formatado.append(f"{formatacao}\n{conteudo}\n")
+                    correspondencia = True
+                    break
+            
+            # Se nenhuma correspondência, adicionar como está
+            if not correspondencia and secao:
                 texto_formatado.append(secao + '\n')
         
         # Juntar todas as seções
@@ -212,7 +219,50 @@ def buscar_solucoes_anteriores(equipamento):
         logger.error(f"Erro ao buscar soluções anteriores: {e}")
         return []
 
-# Buscar solução via IA
+def fallback_diagnostico(equipamento, problema):
+    """
+    Gerar diagnóstico genérico de fallback se a IA falhar
+    
+    Args:
+        equipamento (str): Nome do equipamento 
+        problema (str): Descrição do problema
+    
+    Returns:
+        str: Diagnóstico preliminar genérico
+    """
+    logger.warning(f"Gerando diagnóstico de fallback para {equipamento}")
+    
+    return f"""
+**Diagnóstico Técnico - {equipamento}**
+
+**1. Problema**
+Diagnóstico preliminar para situação de: {problema}
+
+**2. Análise Técnica Detalhada**
+Não foi possível gerar um diagnóstico automatizado específico devido a limitações do sistema.
+
+**3. Possíveis Causas**
+- Complexidade do problema além da capacidade de análise atual
+- Necessidade de inspeção técnica especializada
+- Variáveis não capturadas pelo sistema de diagnóstico
+
+**4. Procedimento de Diagnóstico**
+1. Realizar inspeção física completa do equipamento
+2. Consultar manual técnico específico do fabricante
+3. Documentar detalhadamente todas as observações
+4. Considerar chamada de suporte técnico especializado
+
+**5. Passos de Reparo**
+- Não recomendados sem avaliação presencial
+- Necessário laudo técnico detalhado
+
+**6. Peças Potencialmente Envolvidas**
+Sem identificação precisa. Requer análise técnica presencial.
+
+🚨 ATENÇÃO: Este é um diagnóstico preliminar AUTOMÁTICO. 
+NÃO substitui avaliação de profissional técnico qualificado.
+"""
+
 def buscar_solucao_ia(equipamento, problema):
     try:
         if not model:
@@ -240,36 +290,43 @@ def buscar_solucao_ia(equipamento, problema):
         IMPORTANTE: Qualquer referência genérica deve ser IMEDIATAMENTE descartada. 
         FOQUE 100% no {equipamento} e no problema específico de: {problema}
         """
-        logger.info(f"Modelo usado: {model._model_name}")
-        logger.info(f"Tamanho do prompt: {len(prompt)} caracteres")
-        logger.info(f"Enviando prompt para Gemini")
-        safety_settings = [
-            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
-        ]
         
-        resposta = model.generate_content(
-            prompt, 
-            safety_settings=safety_settings,
-            generation_config={
-                "max_output_tokens": 2048,
-                "temperature": 0.7,
-                "top_p": 0.9
-            }
-        )
+        try:
+            logger.info(f"Enviando prompt para diagnóstico de {equipamento}")
+            resposta = model.generate_content(
+                prompt, 
+                safety_settings=[
+                    {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+                    {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+                    {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+                    {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
+                ],
+                generation_config={
+                    "max_output_tokens": 2048,
+                    "temperature": 0.7,
+                    "top_p": 0.9
+                }
+            )
+            
+            # Verificar se a resposta é válida
+            if not resposta.text or len(resposta.text.strip()) < 100:
+                logger.warning("Resposta do Gemini muito curta ou vazia")
+                return fallback_diagnostico(equipamento, problema)
+            
+            # Sanitizar a resposta HTML
+            texto_resposta = sanitizar_html(resposta.text)
+            
+            logger.info("Resposta do Gemini recebida com sucesso")
+            return texto_resposta
         
-        # Sanitizar a resposta HTML
-        texto_resposta = sanitizar_html(resposta.text)
-        
-        logger.info("Resposta do Gemini recebida")
-        return texto_resposta
+        except Exception as erro_geracao:
+            logger.error(f"Erro na geração de conteúdo: {erro_geracao}")
+            return fallback_diagnostico(equipamento, problema)
     
     except Exception as e:
         logger.error(f"Erro na consulta de IA: {e}", exc_info=True)
-        return f"🚫 Ops! Não consegui processar o diagnóstico. Erro: {str(e)} 😓"
-    
+        return fallback_diagnostico(equipamento, problema) 
+
 # Telegram Bot - Configuração
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN, parse_mode='HTML')
 
