@@ -10,6 +10,9 @@ from datetime import datetime
 import sys
 import re
 import html
+from google.oauth2 import service_account
+import json
+
 
 # Configurar logging
 logging.basicConfig(
@@ -213,13 +216,33 @@ def configurar_gemini():
 def configurar_firestore():
     global db
     try:
-        db = firestore.Client()
-        logger.info("Conexão com Firestore estabelecida com sucesso!")
-        return db
+        # Logs de depuração
+        logger.info("Iniciando configuração do Firestore")
+        logger.info(f"Variáveis de ambiente disponíveis: {os.environ.keys()}")
+        
+        credentials_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON')
+        
+        if credentials_json:
+            logger.info("Credenciais JSON encontradas")
+            logger.info(f"Tamanho do JSON: {len(credentials_json)} caracteres")
+            
+            try:
+                # Validar JSON
+                json.loads(credentials_json)
+                logger.info("JSON válido")
+            except json.JSONDecodeError as json_err:
+                logger.error(f"Erro de JSON: {json_err}")
+                return None
+            
+            # Resto do código de configuração...
+        else:
+            logger.error("Nenhuma credencial encontrada")
+            return None
+    
     except Exception as e:
-        logger.error(f"Erro na conexão com Firestore: {e}", exc_info=True)
+        logger.error(f"Erro detalhado: {e}", exc_info=True)
         return None
-
+    
 # Salvar manutenção no Firestore
 def salvar_manutencao(equipamento, problema, solucao):
     try:

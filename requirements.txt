@@ -4,3 +4,4 @@ google-generativeai==0.4.0  # Versão mais recente
 dnspython==2.6.1
 google-cloud-firestore==2.15.0
 google-auth==2.27.0
+google-oauth2==1.1.1
