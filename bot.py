@@ -57,38 +57,38 @@ def sanitizar_html(texto):
             if not linha:
                 continue
             
-            # Títulos principais e seções
+            # Títulos principais e seções com emojis técnicos
             if linha.startswith('Diagnóstico'):
-                texto_formatado.append(f'<b>🔧 {linha}</b>\n')
+                texto_formatado.append(f'<b>🔧 DIAGNÓSTICO TÉCNICO</b>\n')
             
             elif linha == 'Problema:':
-                texto_formatado.append(f'<b>❗ {linha}</b>\n')
+                texto_formatado.append(f'<b>❗ PROBLEMA IDENTIFICADO</b>\n')
             
             elif linha == 'Análise Técnica Detalhada:':
-                texto_formatado.append(f'<b>📋 {linha}</b>\n')
+                texto_formatado.append(f'<b>📋 ANÁLISE TÉCNICA APROFUNDADA</b>\n')
             
             elif linha == 'Possíveis Causas Específicas para a Crown PR 4500:':
-                texto_formatado.append(f'<b>🔍 Possíveis Causas</b>\n')
+                texto_formatado.append(f'<b>🔍 CAUSAS PROVÁVEIS</b>\n')
                 em_lista = True
             
             elif linha == 'Procedimento de Diagnóstico Personalizado:':
-                texto_formatado.append(f'\n<b>🛠️ Procedimento de Diagnóstico</b>\n')
+                texto_formatado.append(f'\n<b>🛠️ PROCEDIMENTO DIAGNÓSTICO</b>\n')
                 em_procedimento = True
             
-            # Processamento de listas
+            # Processamento de listas com marcadores técnicos
             elif em_lista and linha.startswith('*'):
-                linha_limpa = linha.replace('*', '• ').strip()
-                texto_formatado.append(linha_limpa)
+                linha_limpa = linha.replace('*', '➤ ').strip()
+                texto_formatado.append(f'<i>{linha_limpa}</i>')
             
-            # Processamento de procedimentos numerados
+            # Procedimentos numerados em negrito
             elif em_procedimento and re.match(r'^\d+\.', linha):
                 texto_formatado.append(f'<b>{linha}</b>')
                 em_procedimento = False
             
-            # Conteúdo normal
+            # Conteúdo normal com estilo técnico
             else:
                 # Resetar flags se necessário
-                if em_lista and not linha.startswith('•'):
+                if em_lista and not linha.startswith('➡️'):
                     em_lista = False
                 
                 texto_formatado.append(linha)
@@ -105,6 +105,9 @@ def sanitizar_html(texto):
         
         # Remover espaços em branco excessivos
         texto_final = re.sub(r'\n{3,}', '\n\n', texto_final)
+        
+        # Adicionar rodapé técnico
+        texto_final += '\n\n<i>🚨 RELATÓRIO GERADO POR SISTEMA DE DIAGNÓSTICO AUTOMATIZADO</i>'
         
         return texto_final
     
