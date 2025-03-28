@@ -60,37 +60,8 @@ def sanitizar_html(texto):
         texto = re.sub(r'```html', '', texto)
         texto = re.sub(r'```', '', texto)
         
-        # Dividir o texto em linhas
-        linhas = texto.split('\n')
-        
-        # Filtrar linhas
-        linhas_filtradas = []
-        titulos_vistos = set()
-        
-        for linha in linhas:
-            linha = linha.strip()
-            
-            # Pular linhas vazias
-            if not linha:
-                continue
-            
-            # Remover títulos duplicados
-            if re.match(r'^Diagnóstico Técnico|^\d+\.', linha):
-                if linha not in titulos_vistos:
-                    titulos_vistos.add(linha)
-                    continue
-            
-            # Remover emojis duplicados no cabeçalho
-            if linha.startswith('🔧 Diagnóstico'):
-                linha = linha.split('🚨')[0].strip()
-            
-            linhas_filtradas.append(linha)
-        
-        # Juntar linhas filtradas
-        texto_limpo = '\n'.join(linhas_filtradas)
-        
         # Escapar o texto para evitar parsing incorreto
-        texto_escaped = html.escape(texto_limpo, quote=False)
+        texto_escaped = html.escape(texto, quote=False)
         
         # Restaurar tags HTML básicas permitidas
         tags_permitidas = ['b', 'i', 'u', 'code', 'pre']
@@ -98,50 +69,7 @@ def sanitizar_html(texto):
             texto_escaped = texto_escaped.replace(f'&lt;{tag}&gt;', f'<{tag}>')
             texto_escaped = texto_escaped.replace(f'&lt;/{tag}&gt;', f'</{tag}>')
         
-        # Adicionar formatação HTML para títulos e melhorar legibilidade
-        texto_formatado = f"""<b>Diagnóstico Técnico - Linde H25</b>
-
-<b>1. Análise do problema reportado</b>
-Empilhadeira Linde H25 perdendo força e desligando sozinha.
-
-<b>2. Possíveis causas da falha</b>
-• Sistema de Combustível: Filtro de combustível entupido, bomba de combustível com baixa pressão ou falha, injetores sujos ou defeituosos.
-• Sistema Elétrico: Alternador com defeito, bateria fraca, mau contato em conexões elétricas, sensor de rotação com problema.
-• Sistema de Ar: Filtro de ar excessivamente sujo, entrada de ar falsa.
-• Motor: Baixa compressão, superaquecimento.
-
-<b>3. Procedimento de diagnóstico</b>
-• Verificar o nível de combustível.
-• Inspecionar visualmente o filtro de ar e o filtro de combustível.
-• Verificar a tensão da bateria e o funcionamento do alternador.
-• Analisar a pressão da bomba de combustível.
-• Testar os injetores.
-• Verificar se há códigos de erro na central eletrônica (se aplicável).
-• Medir a compressão do motor.
-• Verificar a temperatura do motor.
-
-<b>4. Passos para reparo ou manutenção</b>
-• Substituir o filtro de combustível e/ou de ar, se necessário.
-• Reparar ou substituir a bomba de combustível, se defeituosa.
-• Limpar ou substituir os injetores.
-• Reparar ou substituir o alternador ou bateria, se necessário.
-• Corrigir qualquer mau contato elétrico.
-• Reparar a entrada de ar falsa, se houver.
-• Realizar a manutenção corretiva no motor, conforme necessário (ex: anéis, junta de cabeçote).
-
-<b>5. Peças potencialmente envolvidas</b>
-<i>(Informar com código do fabricante - Necessário consultar o manual de peças da Linde H25 para os códigos específicos do modelo)</i>
-• Filtro de Combustível
-• Bomba de Combustível
-• Injetores
-• Filtro de Ar
-• Alternador
-• Bateria
-• Sensor de Rotação
-• Anéis de Segmento
-• Junta de Cabeçote"""
-        
-        return texto_formatado
+        return texto_escaped
     
     except Exception as e:
         logger.error(f"Erro na sanitização HTML: {e}")
@@ -273,25 +201,30 @@ def buscar_solucoes_anteriores(equipamento):
 # Buscar solução via IA
 def buscar_solucao_ia(equipamento, problema):
     try:
-        logger.info(f"Buscando solução para: {equipamento}")
-        logger.info(f"Detalhes do problema: {problema}")
         if not model:
             raise ValueError("Modelo Gemini não configurado")
         
         prompt = f"""
-        Diagnóstico Técnico Específico
+        Contexto Específico de Diagnóstico Técnico
 
-        Equipamento: {equipamento}
-        Descrição Detalhada do Problema: {problema}
+        EQUIPAMENTO ATUAL: {equipamento}
+        DESCRIÇÃO COMPLETA DO PROBLEMA: {problema}
 
-        Forneça um diagnóstico técnico EXCLUSIVAMENTE para este equipamento específico, considerando suas características e o problema relatado.
+        INSTRUÇÕES CRUCIAIS:
+        1. Gere um diagnóstico EXCLUSIVAMENTE para o {equipamento}
+        2. Considere TODOS os detalhes do problema descrito
+        3. NÃO use informações de outros equipamentos
+        4. Seja ESPECÍFICO e TÉCNICO
 
-        Estrutura da Resposta:
-        1. Análise do problema reportado para {equipamento}
-        2. Causas específicas para este modelo
-        3. Procedimento de diagnóstico personalizado
-        4. Passos de reparo direcionados
-        5. Peças potencialmente envolvidas
+        ESTRUTURA OBRIGATÓRIA DO DIAGNÓSTICO:
+        • Análise técnica detalhada do problema atual
+        • Possíveis causas específicas para este equipamento
+        • Procedimento de diagnóstico PERSONALIZADO
+        • Passos de reparo direcionados
+        • Peças potencialmente envolvidas
+
+        IMPORTANTE: Qualquer referência genérica deve ser IMEDIATAMENTE descartada. 
+        FOQUE 100% no {equipamento} e no problema específico de: {problema}
         """
         logger.info(f"Modelo usado: {model._model_name}")
         logger.info(f"Tamanho do prompt: {len(prompt)} caracteres")
@@ -305,20 +238,17 @@ def buscar_solucao_ia(equipamento, problema):
         
         resposta = model.generate_content(
             prompt, 
-            safety_settings=[
-                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
-            ],
+            safety_settings=safety_settings,
             generation_config={
                 "max_output_tokens": 2048,
-                "temperature": 0.7,  # Aumentar variabilidade
-                "top_p": 0.9,        # Permitir mais diversidade
-                "top_k": 40          # Adicionar mais diversidade na seleção de tokens
+                "temperature": 0.7,
+                "top_p": 0.9
             }
         )
-
+        
+        # Log do texto original recebido
+        logger.info(f"Texto original do Gemini: {resposta.text}")
+        
         # Sanitizar a resposta HTML
         texto_resposta = sanitizar_html(resposta.text)
         
@@ -328,7 +258,7 @@ def buscar_solucao_ia(equipamento, problema):
     except Exception as e:
         logger.error(f"Erro na consulta de IA: {e}", exc_info=True)
         return f"🚫 Ops! Não consegui processar o diagnóstico. Erro: {str(e)} 😓"
-
+    
 # Telegram Bot - Configuração
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN, parse_mode='HTML')
 
