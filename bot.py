@@ -146,6 +146,7 @@ Empilhadeira Linde H25 perdendo força e desligando sozinha.
     except Exception as e:
         logger.error(f"Erro na sanitização HTML: {e}")
         return "Erro ao processar resposta técnica."
+    
 def dividir_mensagem(texto, max_length=4000):
     paragrafos = texto.split('\n')
     mensagens = []
@@ -270,6 +271,7 @@ def buscar_solucao_ia(equipamento, problema):
         • Utilize <br> para quebras de linha
         • Crie listas com • no início de cada item
         • Seja técnico e direto
+        • NÃO inclua cabeçalhos ou títulos repetidos
         """
         
         logger.info(f"Enviando prompt para Gemini")
@@ -293,11 +295,8 @@ def buscar_solucao_ia(equipamento, problema):
         # Sanitizar a resposta HTML
         texto_resposta = sanitizar_html(resposta.text)
         
-        # Adicionar emoji para dar mais personalidade
-        texto_formatado = f"🔧 Diagnóstico para {equipamento} 🚨\n\n{texto_resposta}"
-        
         logger.info("Resposta do Gemini recebida")
-        return texto_formatado
+        return texto_resposta
     
     except Exception as e:
         logger.error(f"Erro na consulta de IA: {e}", exc_info=True)
