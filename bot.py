@@ -57,40 +57,35 @@ def sanitizar_html(texto):
             if not linha:
                 continue
             
-            # Títulos principais e seções com emojis técnicos
-            if linha.startswith('Diagnóstico'):
-                texto_formatado.append(f'<b>🔧 DIAGNÓSTICO TÉCNICO</b>\n')
+            # Processamento de títulos e seções principais
+            if linha.lower().startswith('diagnóstico'):
+                texto_formatado.append(f'<b>🔧 DIAGNÓSTICO TÉCNICO</b>')
             
-            elif linha == 'Problema:':
-                texto_formatado.append(f'<b>❗ PROBLEMA IDENTIFICADO</b>\n')
+            elif any(termo in linha.lower() for termo in ['problema:', 'problema detectado']):
+                texto_formatado.append(f'<b>❗ PROBLEMA IDENTIFICADO</b>')
             
-            elif linha == 'Análise Técnica Detalhada:':
-                texto_formatado.append(f'<b>📋 ANÁLISE TÉCNICA APROFUNDADA</b>\n')
+            elif any(termo in linha.lower() for termo in ['análise técnica', 'análise detalhada']):
+                texto_formatado.append(f'<b>📋 ANÁLISE TÉCNICA APROFUNDADA</b>')
             
-            elif linha == 'Possíveis Causas Específicas para a Crown PR 4500:':
-                texto_formatado.append(f'<b>🔍 CAUSAS PROVÁVEIS</b>\n')
+            elif any(termo in linha.lower() for termo in ['causas', 'possíveis causas']):
+                texto_formatado.append(f'<b>🔍 CAUSAS PROVÁVEIS</b>')
                 em_lista = True
             
-            elif linha == 'Procedimento de Diagnóstico Personalizado:':
-                texto_formatado.append(f'\n<b>🛠️ PROCEDIMENTO DIAGNÓSTICO</b>\n')
+            elif any(termo in linha.lower() for termo in ['procedimento', 'diagnóstico personalizado']):
+                texto_formatado.append(f'\n<b>🛠️ PROCEDIMENTO DIAGNÓSTICO</b>')
                 em_procedimento = True
             
-            # Processamento de listas com marcadores técnicos
-            elif em_lista and linha.startswith('*'):
-                linha_limpa = linha.replace('*', '➤ ').strip()
-                texto_formatado.append(f'<i>{linha_limpa}</i>')
+            # Processamento de listas
+            elif em_lista and linha.startswith(('*', '-', '•')):
+                linha_limpa = linha.lstrip('*-•').strip()
+                texto_formatado.append(f'➡️ {linha_limpa}')
             
-            # Procedimentos numerados em negrito
+            # Processamento de procedimentos numerados
             elif em_procedimento and re.match(r'^\d+\.', linha):
                 texto_formatado.append(f'<b>{linha}</b>')
-                em_procedimento = False
             
-            # Conteúdo normal com estilo técnico
+            # Conteúdo normal
             else:
-                # Resetar flags se necessário
-                if em_lista and not linha.startswith('➡️'):
-                    em_lista = False
-                
                 texto_formatado.append(linha)
         
         # Juntar o texto formatado
@@ -289,63 +284,72 @@ def buscar_solucao_ia(equipamento, problema):
             raise ValueError("Modelo Gemini não configurado")
         
         prompt = f"""
-        Contexto Específico de Diagnóstico Técnico
+DIAGNÓSTICO TÉCNICO DE EQUIPAMENTO
 
-        EQUIPAMENTO ATUAL: {equipamento}
-        DESCRIÇÃO COMPLETA DO PROBLEMA: {problema}
+📍 EQUIPAMENTO: {equipamento}
+❗ PROBLEMA DESCRITO: {problema}
 
-        INSTRUÇÕES CRUCIAIS:
-        1. Gere um diagnóstico EXCLUSIVAMENTE para o {equipamento}
-        2. Considere TODOS os detalhes do problema descrito
-        3. NÃO use informações de outros equipamentos
-        4. Seja ESPECÍFICO e TÉCNICO
+INSTRUÇÕES PARA DIAGNÓSTICO:
 
-        ESTRUTURA OBRIGATÓRIA DO DIAGNÓSTICO:
-        • Análise técnica detalhada do problema atual
-        • Possíveis causas específicas para este equipamento
-        • Procedimento de diagnóstico PERSONALIZADO
-        • Passos de reparo direcionados
-        • Peças potencialmente envolvidas
+1. ANÁLISE TÉCNICA
+- Avalie EXCLUSIVAMENTE o equipamento mencionado
+- Foque NOS DETALHES ESPECÍFICOS do problema descrito
+- Use linguagem técnica DIRETA e OBJETIVA
 
-        IMPORTANTE: Qualquer referência genérica deve ser IMEDIATAMENTE descartada. 
-        FOQUE 100% no {equipamento} e no problema específico de: {problema}
-        """
+2. ESTRUTURA DO RELATÓRIO
+a) IDENTIFICAÇÃO DO PROBLEMA
+   - Descrição técnica precisa
+   - Sintomas observados
+
+b) POSSÍVEIS CAUSAS
+   - Lista de causas potenciais
+   - Priorize as mais prováveis
+   - Baseie-se em dados técnicos
+
+c) PROCEDIMENTO DE DIAGNÓSTICO
+   - Passos sequenciais para investigação
+   - Testes ou verificações específicas
+   - Equipamentos/ferramentas necessárias
+
+d) RECOMENDAÇÕES DE REPARO
+   - Ações corretivas
+   - Peças potencialmente envolvidas
+   - Nível de urgência
+
+IMPORTANTE:
+- IGNORE históricos anteriores
+- FOQUE no problema ATUAL
+- Seja TÉCNICO e OBJETIVO
+"""
         
-        try:
-            logger.info(f"Enviando prompt para diagnóstico de {equipamento}")
-            resposta = model.generate_content(
-                prompt, 
-                safety_settings=[
-                    {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-                    {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-                    {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-                    {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
-                ],
-                generation_config={
-                    "max_output_tokens": 2048,
-                    "temperature": 0.7,
-                    "top_p": 0.9
-                }
-            )
-            
-            # Verificar se a resposta é válida
-            if not resposta.text or len(resposta.text.strip()) < 100:
-                logger.warning("Resposta do Gemini muito curta ou vazia")
-                return fallback_diagnostico(equipamento, problema)
-            
-            # Sanitizar a resposta HTML
-            texto_resposta = sanitizar_html(resposta.text)
-            
-            logger.info("Resposta do Gemini recebida com sucesso")
-            return texto_resposta
+        resposta = model.generate_content(
+            prompt, 
+            safety_settings=[
+                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
+            ],
+            generation_config={
+                "max_output_tokens": 2048,
+                "temperature": 0.7,
+                "top_p": 0.9
+            }
+        )
         
-        except Exception as erro_geracao:
-            logger.error(f"Erro na geração de conteúdo: {erro_geracao}")
+        # Verificações de resposta mantidas
+        if not resposta.text or len(resposta.text.strip()) < 100:
+            logger.warning("Resposta do Gemini muito curta ou vazia")
             return fallback_diagnostico(equipamento, problema)
+        
+        texto_resposta = sanitizar_html(resposta.text)
+        
+        logger.info("Resposta do Gemini recebida com sucesso")
+        return texto_resposta
     
     except Exception as e:
         logger.error(f"Erro na consulta de IA: {e}", exc_info=True)
-        return fallback_diagnostico(equipamento, problema) 
+        return fallback_diagnostico(equipamento, problema)
 
 # Telegram Bot - Configuração
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN, parse_mode='HTML')
