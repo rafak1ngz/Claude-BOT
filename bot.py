@@ -250,34 +250,12 @@ def fallback_diagnostico(equipamento, problema):
     logger.warning(f"Gerando diagnóstico de fallback para {equipamento}")
     
     return f"""
-**Diagnóstico Técnico - {equipamento}**
+❌ <b>Não foi possível processar sua consulta.</b>
 
-**1. Problema**
-Diagnóstico preliminar para situação de: {problema}
+Tente novamente iniciando um novo atendimento com o comando:
+👉 /start
 
-**2. Análise Técnica Detalhada**
-Não foi possível gerar um diagnóstico automatizado específico devido a limitações do sistema.
-
-**3. Possíveis Causas**
-- Complexidade do problema além da capacidade de análise atual
-- Necessidade de inspeção técnica especializada
-- Variáveis não capturadas pelo sistema de diagnóstico
-
-**4. Procedimento de Diagnóstico**
-1. Realizar inspeção física completa do equipamento
-2. Consultar manual técnico específico do fabricante
-3. Documentar detalhadamente todas as observações
-4. Considerar chamada de suporte técnico especializado
-
-**5. Passos de Reparo**
-- Não recomendados sem avaliação presencial
-- Necessário laudo técnico detalhado
-
-**6. Peças Potencialmente Envolvidas**
-Sem identificação precisa. Requer análise técnica presencial.
-
-🚨 ATENÇÃO: Este é um diagnóstico preliminar AUTOMÁTICO. 
-NÃO substitui avaliação de profissional técnico qualificado.
+<i>Se o problema persistir, revise os dados informados ou reporte ao supervisor.</i>
 """
 
 def buscar_solucao_ia(equipamento, problema):
